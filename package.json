@@ -1,17 +1,30 @@
 {
-  "name": "navidad",
+  "name": "christmas-movies-select",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed": "tsx --conditions=react-server --env-file=.env.local scripts/seed-list.mts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "demo": "MONGODB_DB=christmas-movies-demo tsx --conditions=react-server --env-file=.env.local scripts/demo.mts"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/utilities": "^3.2.2",
+    "@vercel/functions": "^3.9.11",
+    "jose": "^6.2.12",
+    "lucide-react": "^1.55.0",
+    "mongodb": "^7.7.0",
     "next": "16.4.0",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "server-only": "^0.0.1",
+    "sonner": "^2.0.8",
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
@@ -21,7 +34,9 @@
     "eslint": "^9",
     "eslint-config-next": "16.4.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "tsx": "^4.23.15",
+    "typescript": "^5",
+    "vitest": "^5.0.3"
   },
   "packageManager": "pnpm@10.20.0"
 }

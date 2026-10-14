@@ -1,0 +1,55 @@
+import { describe, expect, it } from "vitest";
+import { freeDays, monthCells, parseKey, presetStart, rangeDays, seasonFor, toKey } from "./calendar";
+
+describe("calendar ranges", () => {
+  const today = new Date(2026, 9, 11);
+
+  it("resolves every preset to a start date before Christmas Eve", () => {
+    expect(presetStart("today", 2026, today)).toBe("2026-10-11");
+    expect(presetStart("oct", 2026, today)).toBe("2026-10-01");
+    expect(presetStart("nov", 2026, today)).toBe("2026-11-01");
+    expect(presetStart("dec", 2026, today)).toBe("2026-12-01");
+    expect(presetStart("novena", 2026, today)).toBe("2026-12-16");
+    expect(presetStart("custom", 2026, today, "2026-11-22")).toBe("2026-11-22");
+    expect(presetStart("custom", 2026, today, "2026-12-30")).toBe("2026-12-24");
+  });
+
+  it("counts the days in each range", () => {
+    expect(rangeDays("2026-12-01", "2026-12-24")).toHaveLength(24);
+    expect(rangeDays("2026-12-16", "2026-12-24")).toHaveLength(9);
+    expect(rangeDays("2026-10-01", "2026-12-24")).toHaveLength(85);
+    // 33 movies fit exactly from Nov 22.
+    expect(rangeDays("2026-11-22", "2026-12-24")).toHaveLength(33);
+  });
+
+  it("round-trips date keys in local time", () => {
+    expect(toKey(parseKey("2026-03-08"))).toBe("2026-03-08");
+  });
+
+  it("rolls the season over after Christmas Eve", () => {
+    expect(seasonFor(new Date(2026, 11, 24, 20))).toBe(2026);
+    expect(seasonFor(new Date(2026, 11, 26))).toBe(2027);
+  });
+
+  it("lays out a Monday-first month with Christmas and no days after it", () => {
+    const days = rangeDays("2026-12-01", "2026-12-24");
+    const cells = monthCells("2026-12", new Map(days.map((k, i) => [k, i + 1])));
+    // Dec 1, 2026 is a Tuesday → one blank cell.
+    expect(cells[0].kind).toBe("blank");
+    expect(cells[1]).toMatchObject({ kind: "door", day: 1, index: 1 });
+    expect(cells.filter((c) => c.kind === "door")).toHaveLength(24);
+    expect(cells.at(-1)?.kind).toBe("xmas");
+  });
+
+  it("marks days outside the range", () => {
+    const days = rangeDays("2026-10-11", "2026-12-24");
+    const cells = monthCells("2026-10", new Map(days.map((k, i) => [k, i + 1])));
+    const out = cells.filter((c) => c.kind === "out");
+    expect(out).toHaveLength(10);
+  });
+
+  it("finds free days from today on", () => {
+    const days = rangeDays("2026-12-20", "2026-12-24");
+    expect(freeDays(days, { "2026-12-21": "a" }, "2026-12-21")).toEqual(["2026-12-22", "2026-12-23", "2026-12-24"]);
+  });
+});
