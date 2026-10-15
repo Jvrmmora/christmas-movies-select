@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { freeDays, monthCells, parseKey, presetStart, rangeDays, seasonFor, toKey } from "./calendar";
+import { freeDays, monthCells, parseKey, planAutoFill, presetStart, rangeDays, seasonFor, toKey } from "./calendar";
 
 describe("calendar ranges", () => {
   const today = new Date(2026, 9, 11);
@@ -51,5 +51,36 @@ describe("calendar ranges", () => {
   it("finds free days from today on", () => {
     const days = rangeDays("2026-12-20", "2026-12-24");
     expect(freeDays(days, { "2026-12-21": "a" }, "2026-12-21")).toEqual(["2026-12-22", "2026-12-23", "2026-12-24"]);
+  });
+});
+
+describe("planAutoFill", () => {
+  const days = rangeDays("2026-11-01", "2026-11-10");
+
+  it("places every movie, from the first free day on", () => {
+    const { next, placed, left } = planAutoFill(days, { "2026-11-02": "x" }, ["a", "b", "c"], "2026-11-01");
+    expect(next).toEqual({ "2026-11-01": "a", "2026-11-02": "x", "2026-11-03": "b", "2026-11-04": "c" });
+    expect([placed, left]).toEqual([3, 0]);
+  });
+
+  it("moves a movie that was assigned outside the range instead of duplicating it", () => {
+    // Switching from "Desde hoy" (Oct) to "1 nov" leaves movie "a" on an Oct day.
+    const { next } = planAutoFill(days, { "2026-10-20": "a", "2026-11-01": "x" }, ["a", "b"], "2026-11-01");
+    expect(Object.values(next).filter((id) => id === "a")).toHaveLength(1);
+    expect(next["2026-10-20"]).toBeUndefined();
+    expect(next["2026-11-02"]).toBe("a");
+  });
+
+  it("uses earlier free days only when the later ones run out", () => {
+    const { next, placed, left } = planAutoFill(days, {}, ["a", "b", "c"], "2026-11-09");
+    expect(next["2026-11-09"]).toBe("a");
+    expect(next["2026-11-10"]).toBe("b");
+    expect(next["2026-11-01"]).toBe("c");
+    expect([placed, left]).toEqual([3, 0]);
+  });
+
+  it("reports the movies that do not fit", () => {
+    const { placed, left } = planAutoFill(rangeDays("2026-12-22", "2026-12-24"), {}, ["a", "b", "c", "d", "e"], "2026-12-22");
+    expect([placed, left]).toEqual([3, 2]);
   });
 });

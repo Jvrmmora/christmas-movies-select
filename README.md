@@ -10,7 +10,7 @@ Next.js 16 · MongoDB Atlas · datos automáticos de JustWatch, sin IA ni API ke
 ![Next.js](https://img.shields.io/badge/Next.js-16.4-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6)
 ![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47a248)
-![Tests](https://img.shields.io/badge/tests-18%20pasan-1e9e48)
+![Tests](https://img.shields.io/badge/tests-22%20pasan-1e9e48)
 ![Licencia](https://img.shields.io/badge/licencia-MIT-blue)
 
 <img src="docs/inicio-escritorio.jpg" alt="Inicio: saludo según la hora, cuenta regresiva a Nochebuena, progreso y la película de hoy" width="760" />
@@ -40,9 +40,9 @@ Next.js 16 · MongoDB Atlas · datos automáticos de JustWatch, sin IA ni API ke
 - **Agregar con nombre y año.** Busca en JustWatch Colombia y trae el título latinoamericano, el póster, la sinopsis, los géneros, la duración, IMDb, el Tomatómetro (con Certified Fresh) y las plataformas con enlace directo a la película. Todo se puede editar a mano, incluida la opción «Sin plataforma».
 - **Importar una lista completa.** Pegan «Título (año)» una por línea, revisan las coincidencias dudosas y guardan todas de una vez.
 - **Marcar como vista** con un check verde animado y un sonido de campana (Web Audio, sin archivos). También tienen favoritas, calificación propia de 1 a 5 estrellas y notas.
-- **Calendario de adviento.** Empieza «Desde hoy», el 1 de octubre, el 1 de noviembre, el 1 de diciembre, en la Novena (16–24 dic) o en una fecha propia, y termina el 24 de diciembre. Las películas se arrastran a cada día. Tiene modo sorpresa (los días futuros quedan cerrados como regalos), «Repartir automáticamente», «Mezclar» y «Vaciar» con opción de deshacer.
+- **Calendario de adviento.** Empieza «Desde hoy», el 1 de octubre, el 1 de noviembre, el 1 de diciembre, en la Novena (16–24 dic) o en una fecha propia, y termina el 24 de diciembre. Las películas se arrastran a cada día. Tiene modo sorpresa (los días futuros quedan cerrados como regalos), «Repartir automáticamente» (asigna todas las pendientes aunque cambien el rango de fechas), «Mezclar» y «Vaciar» con opción de deshacer. Al abrir una puerta se ve la película en grande: póster, sinopsis completa, puntuaciones y todas las plataformas con su enlace.
 - **Inicio que saluda** con «Buenos días», «Buenas tardes» o «Buenas noches» según la hora, cuenta los días que faltan para Nochebuena y muestra la película que toca hoy.
-- **Diseño navideño:** modo claro y oscuro con transición de círculo, nieve, guirnalda de luces, tipografía de Apple (SF Pro / New York) y vista móvil con barra de pestañas.
+- **Diseño navideño:** logo de árbol de Navidad, modo claro y oscuro con transición de círculo, nieve, guirnalda de luces, tipografía de Apple (SF Pro / New York), pie de página con créditos y vista móvil con barra de pestañas.
 
 <div align="center">
 <img src="docs/inicio-movil.png" alt="Versión móvil del inicio" width="260" />
@@ -139,7 +139,7 @@ pnpm seed
 **Pruebas y chequeos:**
 
 ```bash
-pnpm test        # 18 pruebas: calendario, saludo, formato, lectura de listas y mapeo de JustWatch
+pnpm test        # 22 pruebas: calendario y reparto automático, saludo, formato, lectura de listas y mapeo de JustWatch
 pnpm lint
 pnpm typecheck
 pnpm build
