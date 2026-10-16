@@ -10,7 +10,7 @@ Next.js 16 · MongoDB Atlas · datos automáticos de JustWatch, sin IA ni API ke
 ![Next.js](https://img.shields.io/badge/Next.js-16.4-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6)
 ![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47a248)
-![Tests](https://img.shields.io/badge/tests-30%20pasan-1e9e48)
+![Tests](https://img.shields.io/badge/tests-33%20pasan-1e9e48)
 ![Licencia](https://img.shields.io/badge/licencia-MIT-blue)
 
 <img src="docs/inicio-escritorio.jpg" alt="Inicio: saludo según la hora, cuenta regresiva a Navidad, progreso y la película de hoy" width="760" />
@@ -39,7 +39,7 @@ Next.js 16 · MongoDB Atlas · datos automáticos de JustWatch, sin IA ni API ke
 
 - **Agregar con nombre y año.** Busca en JustWatch Colombia y trae el título latinoamericano, el póster, la sinopsis, los géneros, la duración, IMDb, el Tomatómetro (con Certified Fresh) y las plataformas con enlace directo a la película. Todo se puede editar a mano, incluida la opción «Sin plataforma».
 - **Sin duplicados.** Si buscan una película que ya tienen, el resultado sale bloqueado con el aviso «Ya lo tienes en tu biblioteca» y un enlace para verla. Se detecta por el id de JustWatch, el de IMDb o título y año, así que también atrapa las escritas a mano. Al importar una lista pasa lo mismo: esas filas quedan desmarcadas.
-- **Sugeridas.** Una página con películas navideñas conocidas (clásicas y recientes) que todavía no están en su lista, con sus puntuaciones y plataformas en Colombia. Al tocar una película se abre su detalle (sinopsis, géneros, puntuaciones, todas las plataformas y el tráiler) antes de agregarla; también se agregan con un toque desde la tarjeta, y se puede filtrar por plataforma u ordenar por IMDb, Rotten Tomatoes o año.
+- **Sugeridas.** Una página con películas navideñas conocidas (clásicas y recientes) que todavía no están en su lista, con sus puntuaciones y plataformas en Colombia. Al tocar una película se abre su detalle (sinopsis, géneros, puntuaciones, todas las plataformas y el tráiler) antes de agregarla; también se agregan con un toque desde la tarjeta Al final, «Cargar más sugeridas» trae otras películas navideñas (buscadas en JustWatch, sin repetir las que ya salieron ni las que ya tienen), y se puede filtrar por plataforma u ordenar por IMDb, Rotten Tomatoes o año.
 - **Importar una lista completa.** Pegan «Título (año)» una por línea, revisan las coincidencias dudosas y guardan todas de una vez.
 - **Galería.** El botón «Explorar en galería» (o el ícono de cada tarjeta) abre un carrusel casi a pantalla completa para recorrer sus películas: carátula, año, puntuaciones y plataformas de la que está al centro. Se navega con las flechas, con ← → del teclado o deslizando, y sigue el orden y los filtros de la lista.
 - **Marcar como vista** con un check verde animado y un sonido de campana (Web Audio, sin archivos). También tienen favoritas, calificación propia de 1 a 5 estrellas y notas.
@@ -142,7 +142,7 @@ pnpm seed
 **Pruebas y chequeos:**
 
 ```bash
-pnpm test        # 30 pruebas: calendario y reparto automático, detección de duplicados, saludo, formato, lectura de listas y mapeo de JustWatch
+pnpm test        # 33 pruebas: calendario y reparto automático, detección de duplicados, saludo, formato, lectura de listas y mapeo de JustWatch
 pnpm lint
 pnpm typecheck
 pnpm build
