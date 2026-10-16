@@ -247,3 +247,40 @@ export async function getJustWatchTitle(id: string): Promise<Candidate | null> {
   if (!data.node?.content) return null;
   return toCandidate(data.node, data.node.content.title, data.node.content.originalReleaseYear ?? undefined);
 }
+
+/**
+ * Looks up many known titles in one GraphQL request (aliases). Used for the curated
+ * suggestions: the US catalog is broader, content and offers are still Colombian.
+ * Only confident matches are returned; the rest come back as null.
+ */
+export async function searchBatch(items: { title: string; year: number }[]): Promise<(Candidate | null)[]> {
+  const out: (Candidate | null)[] = items.map(() => null);
+  const SIZE = 12;
+  const jobs: Promise<void>[] = [];
+  for (let start = 0; start < items.length; start += SIZE) {
+    const slice = items.slice(start, start + SIZE);
+    const body = slice
+      .map(
+        (it, i) =>
+          `q${i}: popularTitles(country: US, first: 3, filter: { searchQuery: ${JSON.stringify(it.title)}, releaseYear: { min: ${it.year - 1}, max: ${it.year + 1} }, objectTypes: [MOVIE] }) { edges { node { ${FIELDS} } } }`,
+      )
+      .join("\n");
+    jobs.push(
+      gql<Record<string, { edges: { node: JwNode }[] }>>(`query Batch { ${body} }`, {})
+        .then((data) => {
+          slice.forEach((it, i) => {
+            const best = (data[`q${i}`]?.edges ?? [])
+              .map((e) => e.node)
+              .filter((n) => n.objectType === "MOVIE" && n.content)
+              .map((n) => toCandidate(n, it.title, it.year))
+              .sort((a, b) => b.score - a.score)[0];
+            if (best && best.score >= 1.1) out[start + i] = best;
+          });
+        })
+        // One failed chunk must not sink the whole list.
+        .catch(() => undefined),
+    );
+  }
+  await Promise.all(jobs);
+  return out;
+}

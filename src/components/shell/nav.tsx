@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, BellOff, CalendarDays, Clapperboard, House, LogOut, Moon, Plus, Sun } from "lucide-react";
+import { Bell, BellOff, CalendarDays, Clapperboard, House, LogOut, Moon, Plus, Sparkles, Sun } from "lucide-react";
 import { usePrefs } from "@/components/providers";
 import { logoutAction } from "@/actions/auth";
 
@@ -10,6 +10,7 @@ const LINKS = [
   { href: "/", label: "Inicio", icon: House },
   { href: "/peliculas", label: "Películas", icon: Clapperboard },
   { href: "/calendario", label: "Calendario", icon: CalendarDays },
+  { href: "/sugeridas", label: "Sugeridas", icon: Sparkles },
 ] as const;
 
 function isActive(pathname: string, href: string) {
@@ -88,7 +89,7 @@ export function TabBarView({ pathname }: { pathname: string | null }) {
   return (
     <nav
       aria-label="Principal"
-      className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 gap-1 border-t border-line bg-glass px-3 pt-2 pb-[max(env(safe-area-inset-bottom),12px)] backdrop-blur-xl backdrop-saturate-150 md:hidden"
+      className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 gap-1 border-t border-line bg-glass px-3 pt-2 pb-[max(env(safe-area-inset-bottom),12px)] backdrop-blur-xl backdrop-saturate-150 md:hidden"
     >
       {LINKS.map(({ href, label, icon: Icon }) => {
         const active = pathname !== null && isActive(pathname, href) && pathname !== "/peliculas/nueva";

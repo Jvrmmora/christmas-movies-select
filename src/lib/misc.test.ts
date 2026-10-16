@@ -15,12 +15,22 @@ describe("greeting", () => {
     expect(GREETING[periodFor(2)]).toBe("Buenas noches");
   });
 
-  it("counts down to Christmas Eve", () => {
+  it("counts down to the stroke of midnight that starts Christmas Day", () => {
     const cd = countdownTo(new Date(2026, 9, 11, 12, 0, 0));
-    expect(cd.days).toBe(73);
-    expect(cd.hours).toBe(12);
-    expect(countdownTo(new Date(2026, 11, 24, 21)).isToday).toBe(true);
-    expect(countdownTo(new Date(2026, 11, 26)).days).toBeGreaterThan(360);
+    // Oct 11 12:00 → Dec 25 00:00 = 74 days and 12 hours.
+    expect([cd.days, cd.hours, cd.minutes, cd.seconds]).toEqual([74, 12, 0, 0]);
+    expect(cd.isChristmas).toBe(false);
+    // Christmas Eve evening: hours left, not zero days of "Nochebuena".
+    const eve = countdownTo(new Date(2026, 11, 24, 21, 30, 15));
+    expect([eve.days, eve.hours, eve.minutes, eve.seconds]).toEqual([0, 2, 29, 45]);
+  });
+
+  it("celebrates on Dec 25 and starts the next year on Dec 26", () => {
+    expect(countdownTo(new Date(2026, 11, 25, 9)).isChristmas).toBe(true);
+    expect(countdownTo(new Date(2026, 11, 25, 9)).days).toBe(0);
+    const next = countdownTo(new Date(2026, 11, 26));
+    expect(next.isChristmas).toBe(false);
+    expect(next.days).toBe(364);
   });
 });
 

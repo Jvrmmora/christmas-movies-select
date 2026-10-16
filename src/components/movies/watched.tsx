@@ -74,6 +74,7 @@ export function WatchedButton({
       type="button"
       onClick={onToggle}
       aria-pressed="true"
+      data-on="true"
       className={`nv-press nv-on inline-flex h-12 items-center justify-center gap-2 rounded-[14px] bg-check px-5 text-[15px] font-semibold text-check-ink ${className}`}
     >
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
