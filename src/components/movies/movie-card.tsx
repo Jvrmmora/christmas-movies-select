@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarDays, Heart } from "lucide-react";
+import { CalendarDays, Heart, Maximize2 } from "lucide-react";
 import { Poster, ProviderLogo } from "@/components/ui/poster";
 import { RatingBadges } from "@/components/ui/rating-badges";
 import { WatchedToggle } from "./watched";
@@ -33,15 +33,18 @@ export function MovieCard({
   onToggle,
   dateLabel,
   delay = 0,
+  onExplore,
 }: {
   movie: Movie;
   watched: boolean;
   onToggle: () => void;
   dateLabel?: string;
   delay?: number;
+  /** Opens the gallery on this movie. */
+  onExplore?: () => void;
 }) {
   return (
-    <article className="nv-fade flex min-w-0 flex-col gap-2.5" style={{ animationDelay: `${delay}s` }}>
+    <article className="group/card nv-fade flex min-w-0 flex-col gap-2.5" style={{ animationDelay: `${delay}s` }}>
       <div className="nv-lift relative aspect-[2/3] overflow-hidden rounded-2xl shadow-card">
         <Link href={`/peliculas/${movie.id}`} aria-label={`Ver detalle de ${movie.title}`} className="block h-full w-full">
           <Poster
@@ -63,6 +66,17 @@ export function MovieCard({
           </span>
         )}
         <WatchedToggle watched={watched} title={movie.title} onToggle={onToggle} />
+        {onExplore && (
+          <button
+            type="button"
+            onClick={onExplore}
+            aria-label={`Ver ${movie.title} en la galería`}
+            title="Ver en la galería"
+            className="nv-press absolute right-2.5 bottom-2.5 grid size-9 place-items-center rounded-full bg-black/55 text-white opacity-90 backdrop-blur-md hover:bg-black/75 sm:opacity-0 sm:transition-opacity sm:group-hover/card:opacity-100 sm:focus-visible:opacity-100"
+          >
+            <Maximize2 className="size-4" strokeWidth={2} aria-hidden />
+          </button>
+        )}
       </div>
       <div className="min-w-0">
         <Link href={`/peliculas/${movie.id}`} className="block truncate text-[15px] font-semibold text-ink hover:underline">
