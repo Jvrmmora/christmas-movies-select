@@ -10,7 +10,7 @@ Next.js 16 · MongoDB Atlas · datos automáticos de JustWatch, sin IA ni API ke
 ![Next.js](https://img.shields.io/badge/Next.js-16.4-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6)
 ![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47a248)
-![Tests](https://img.shields.io/badge/tests-22%20pasan-1e9e48)
+![Tests](https://img.shields.io/badge/tests-29%20pasan-1e9e48)
 ![Licencia](https://img.shields.io/badge/licencia-MIT-blue)
 
 <img src="docs/inicio-escritorio.jpg" alt="Inicio: saludo según la hora, cuenta regresiva a Nochebuena, progreso y la película de hoy" width="760" />
@@ -38,6 +38,8 @@ Next.js 16 · MongoDB Atlas · datos automáticos de JustWatch, sin IA ni API ke
 ## Qué hace
 
 - **Agregar con nombre y año.** Busca en JustWatch Colombia y trae el título latinoamericano, el póster, la sinopsis, los géneros, la duración, IMDb, el Tomatómetro (con Certified Fresh) y las plataformas con enlace directo a la película. Todo se puede editar a mano, incluida la opción «Sin plataforma».
+- **Sin duplicados.** Si buscan una película que ya tienen, el resultado sale bloqueado con el aviso «Ya lo tienes en tu biblioteca» y un enlace para verla. Se detecta por el id de JustWatch, el de IMDb o título y año, así que también atrapa las escritas a mano. Al importar una lista pasa lo mismo: esas filas quedan desmarcadas.
+- **Sugeridas.** Una página con películas navideñas conocidas (clásicas y recientes) que todavía no están en su lista, con sus puntuaciones y plataformas en Colombia. Se agregan con un toque, y se puede filtrar por plataforma u ordenar por IMDb, Rotten Tomatoes o año.
 - **Importar una lista completa.** Pegan «Título (año)» una por línea, revisan las coincidencias dudosas y guardan todas de una vez.
 - **Marcar como vista** con un check verde animado y un sonido de campana (Web Audio, sin archivos). También tienen favoritas, calificación propia de 1 a 5 estrellas y notas.
 - **Calendario de adviento.** Empieza «Desde hoy», el 1 de octubre, el 1 de noviembre, el 1 de diciembre, en la Novena (16–24 dic) o en una fecha propia, y termina el 24 de diciembre. Las películas se arrastran a cada día. Tiene modo sorpresa (los días futuros quedan cerrados como regalos), «Repartir automáticamente» (asigna todas las pendientes aunque cambien el rango de fechas), «Mezclar» y «Vaciar» con opción de deshacer. Los contadores de arriba distinguen días libres de películas sin día, y las películas vistas que no tienen día aparecen en el panel lateral para que ninguna quede escondida. Al abrir una puerta se ve la película en grande: póster, sinopsis completa, puntuaciones y todas las plataformas con su enlace.
@@ -139,7 +141,7 @@ pnpm seed
 **Pruebas y chequeos:**
 
 ```bash
-pnpm test        # 22 pruebas: calendario y reparto automático, saludo, formato, lectura de listas y mapeo de JustWatch
+pnpm test        # 29 pruebas: calendario y reparto automático, detección de duplicados, saludo, formato, lectura de listas y mapeo de JustWatch
 pnpm lint
 pnpm typecheck
 pnpm build
@@ -205,7 +207,7 @@ settings   { ownerId, displayName }   · los nombres del saludo
 src/
 ├── proxy.ts                 # redirige a /login sin sesión válida
 ├── app/
-│   ├── (app)/               # inicio, películas (lista, detalle, nueva, editar, importar), calendario
+│   ├── (app)/               # inicio, películas (lista, detalle, nueva, editar, importar), calendario, sugeridas
 │   ├── login/               # pantalla de clave
 │   └── globals.css          # paleta navideña (tokens claro/oscuro) y animaciones
 ├── actions/                 # Server Actions: auth, movies, calendar, settings
@@ -213,7 +215,9 @@ src/
 └── lib/
     ├── metadata/            # JustWatch (búsqueda y mapeo) y OMDb
     ├── dal.ts · db.ts       # acceso a datos con verificación de sesión · cliente de Mongo
-    ├── calendar.ts          # rangos, celdas del mes, días libres
+    ├── calendar.ts          # rangos, celdas del mes, reparto automático
+    ├── library-match.ts     # ¿ya está en la biblioteca? (JustWatch id, IMDb id, título + año)
+    ├── suggestions.ts       # catálogo navideño y caché de sugeridas
     └── *.test.ts            # pruebas con Vitest
 scripts/                     # seed-list (lista inicial) y demo (datos de demostración)
 public/logos/                # IMDb y Rotten Tomatoes
@@ -229,6 +233,7 @@ docs/                        # logo y capturas del README
 | «La clave no está configurada en el servidor» | Falta `APP_PASSWORD` en el entorno. En Vercel, agréguenla y vuelvan a desplegar. |
 | `AUTH_SECRET debe tener al menos 32 caracteres` | Generen uno con `openssl rand -base64 32`. |
 | La búsqueda no encuentra una película | Prueben con el título original en inglés, o sin año. Si JustWatch no la tiene (por ejemplo, «In fraganti», 2009), elijan «Agregar sin datos» y completen a mano. |
+| «Sugeridas» dice que no pudo cargar | JustWatch no respondió. Recarguen en un momento; el resultado bueno se guarda en caché unas horas. |
 | Una película no muestra IMDb o Rotten Tomatoes | JustWatch no lo tiene. Configuren `OMDB_API_KEY` y usen «Actualizar datos», o escríbanlo en «Editar». |
 | No suena nada | El navegador solo permite audio después del primer toque. Revisen también que la campana de la cabecera no esté tachada (silencio). |
 
@@ -238,6 +243,7 @@ docs/                        # logo y capturas del README
 - [x] Vistas, favoritas, calificación y notas
 - [x] Calendario de adviento con arrastrar y soltar y modo sorpresa
 - [x] Modo claro/oscuro, nieve, sonidos y vista móvil
+- [x] Sugeridas y bloqueo de duplicados
 - [ ] Cuentas por persona (Auth.js) para compartir la app con otras familias
 - [ ] Recordatorio diario de «Hoy toca» (Vercel Cron + correo o push)
 - [ ] Actualización automática semanal de plataformas y ratings

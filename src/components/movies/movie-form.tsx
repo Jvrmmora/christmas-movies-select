@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { Check, ChevronDown, ChevronLeft, Clapperboard, Plus, Search, Trash2, WandSparkles, X } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, Clapperboard, Lock, Plus, Search, Trash2, WandSparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { createMovieAction, searchMoviesAction, updateMovieAction } from "@/actions/movies";
 import { usePrefs } from "@/components/providers";
@@ -144,7 +144,7 @@ export function MovieForm({ movie, calendar, calendarDate = null }: { movie?: Mo
   const search = () => {
     const year = Number.parseInt(qYear, 10);
     startSearch(async () => {
-      const res = await searchMoviesAction(qName, Number.isInteger(year) ? year : undefined);
+      const res = await searchMoviesAction(qName, Number.isInteger(year) ? year : undefined, movie?.id);
       if (!res.ok) {
         toast.error(res.error);
         return;
@@ -156,7 +156,10 @@ export function MovieForm({ movie, calendar, calendarDate = null }: { movie?: Mo
         return;
       }
       const best = res.data[0];
-      if (!editing && best.score >= 0.9) applyCandidate(best);
+      if (best.inLibrary && best.score >= 0.9) {
+        toast.warning(`Ya lo tienes en tu biblioteca: «${best.inLibrary.title}»`);
+        play("tick");
+      } else if (!editing && best.score >= 0.9) applyCandidate(best);
     });
   };
 
@@ -297,6 +300,35 @@ export function MovieForm({ movie, calendar, calendarDate = null }: { movie?: Mo
                 <div role="radiogroup" aria-label="Coincidencias" className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
                   {candidates.map((c) => {
                     const on = picked === c.justwatchId;
+                    if (c.inLibrary) {
+                      return (
+                        <div
+                          key={c.justwatchId}
+                          role="radio"
+                          aria-checked="false"
+                          aria-disabled="true"
+                          className="relative flex gap-3 rounded-2xl border-2 border-dashed border-line bg-surface-2/60 p-2.5 text-left"
+                        >
+                          <div className="opacity-50 grayscale">
+                            <Poster src={c.posterUrl} title={c.title} className="h-[84px] w-14 shrink-0 rounded-lg" />
+                          </div>
+                          <span className="flex min-w-0 flex-1 flex-col gap-1 pt-0.5">
+                            <span className="text-[15px] leading-tight font-semibold text-ink-2">{c.title}</span>
+                            <span className="truncate text-[13px] text-ink-2">
+                              {c.year}
+                              {c.originalTitle && c.originalTitle !== c.title ? ` · ${c.originalTitle}` : ""}
+                            </span>
+                            <span className="mt-0.5 inline-flex w-fit items-center gap-1.5 rounded-full bg-gold-soft px-2.5 py-1 text-xs font-bold text-gold-ink">
+                              <Lock className="size-3" strokeWidth={2.4} aria-hidden />
+                              Ya lo tienes en tu biblioteca
+                            </span>
+                            <Link href={`/peliculas/${c.inLibrary.id}`} className="w-fit text-xs font-semibold text-berry-ink hover:underline">
+                              Ver «{c.inLibrary.title}»
+                            </Link>
+                          </span>
+                        </div>
+                      );
+                    }
                     return (
                       <button
                         key={c.justwatchId}

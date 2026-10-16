@@ -11,7 +11,7 @@ import type { Movie } from "@/lib/types";
 export function PlatformHint({ movie }: { movie: Movie }) {
   const sub = subscriptionOffers(movie.streaming);
   if (sub.length) {
-    const shown = sub.filter((o, i, all) => all.findIndex((x) => x.name === o.name) === i).slice(0, 2);
+    const shown = sub.filter((o, i, all) => all.findIndex((x) => (x.logoUrl ?? x.name) === (o.logoUrl ?? o.name)) === i).slice(0, 2);
     return (
       <span className="ml-auto flex items-center gap-1">
         {shown.map((o) => (
@@ -21,7 +21,7 @@ export function PlatformHint({ movie }: { movie: Movie }) {
     );
   }
   return (
-    <span className="ml-auto rounded-md bg-surface-2 px-1.5 py-0.5 text-[11px] font-semibold text-ink-2">
+    <span className="ml-auto shrink-0 rounded-md bg-surface-2 px-1.5 py-0.5 text-[11px] font-semibold whitespace-nowrap text-ink-2">
       {movie.streaming.length ? "Alquiler" : "Sin plataforma"}
     </span>
   );
