@@ -284,3 +284,24 @@ export async function searchBatch(items: { title: string; year: number }[]): Pro
   await Promise.all(jobs);
   return out;
 }
+
+export interface SearchPage {
+  candidates: Candidate[];
+  endCursor: string | null;
+  hasNextPage: boolean;
+}
+
+/** One page of movies for a search term, most popular first (US catalog, Colombian offers). */
+export async function searchPage(term: string, after: string | null, first = 40): Promise<SearchPage> {
+  const afterArg = after ? `, after: ${JSON.stringify(after)}` : "";
+  const data = await gql<{ popularTitles: { pageInfo: { endCursor: string | null; hasNextPage: boolean }; edges: { node: JwNode }[] } }>(
+    `query Page { popularTitles(country: US, first: ${first}${afterArg}, filter: { searchQuery: ${JSON.stringify(term)}, objectTypes: [MOVIE] }) { pageInfo { endCursor hasNextPage } edges { node { ${FIELDS} } } } }`,
+    {},
+  );
+  const page = data.popularTitles;
+  return {
+    candidates: page.edges.map((e) => e.node).filter((n) => n.objectType === "MOVIE" && n.content).map((n) => toCandidate(n, term)),
+    endCursor: page.pageInfo.endCursor,
+    hasNextPage: page.pageInfo.hasNextPage,
+  };
+}
