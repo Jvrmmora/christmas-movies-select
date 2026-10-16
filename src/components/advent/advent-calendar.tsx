@@ -69,6 +69,9 @@ export function AdventCalendar({ movies, calendar }: { movies: Movie[]; calendar
     .filter((m) => !assignedIds.has(m.id) && !isWatched(m.id))
     .sort((a, b) => Number(b.favorite) - Number(a.favorite) || (b.ratings.imdb ?? 0) - (a.ratings.imdb ?? 0));
 
+  // Watched movies with no day in this range: not in the pool, but never hidden.
+  const seenNoDay = movies.filter((m) => !assignedIds.has(m.id) && isWatched(m.id));
+
   const monthKeys = [...new Set(days.map((k) => k.slice(0, 7)))];
   const currentMonth =
     month && monthKeys.includes(month) ? month : todayKey && monthKeys.includes(todayKey.slice(0, 7)) ? todayKey.slice(0, 7) : monthKeys[0];
@@ -205,9 +208,19 @@ export function AdventCalendar({ movies, calendar }: { movies: Movie[]; calendar
             </p>
           </div>
           <div className="flex flex-wrap gap-2 text-sm font-semibold tabular-nums">
-            <span className="inline-flex h-9 items-center rounded-full bg-surface px-3.5 shadow-card">{days.length} días</span>
-            <span className="inline-flex h-9 items-center rounded-full bg-pine-soft px-3.5 text-pine">{assignedCount} con película</span>
-            <span className="inline-flex h-9 items-center rounded-full bg-gold-soft px-3.5 text-gold-ink">{days.length - assignedCount} libres</span>
+            <span className="inline-flex h-9 items-center rounded-full bg-surface px-3.5 shadow-card">{days.length} días en total</span>
+            <span className="inline-flex h-9 items-center rounded-full bg-pine-soft px-3.5 text-pine">{assignedCount} días con película</span>
+            <span className="inline-flex h-9 items-center rounded-full bg-gold-soft px-3.5 text-gold-ink">{days.length - assignedCount} días libres</span>
+            {pool.length > 0 && (
+              <span className="inline-flex h-9 items-center rounded-full bg-berry-soft px-3.5 text-berry-ink">
+                {pool.length} {pool.length === 1 ? "película sin día" : "películas sin día"}
+              </span>
+            )}
+            {seenNoDay.length > 0 && (
+              <span className="inline-flex h-9 items-center rounded-full bg-surface-2 px-3.5 text-ink-2">
+                {seenNoDay.length} {seenNoDay.length === 1 ? "vista sin día" : "vistas sin día"}
+              </span>
+            )}
           </div>
         </div>
 
@@ -382,7 +395,7 @@ export function AdventCalendar({ movies, calendar }: { movies: Movie[]; calendar
             </div>
           </section>
 
-          <Pool movies={pool} onQuick={quickAssign} />
+          <Pool movies={pool} seen={seenNoDay} onQuick={quickAssign} />
         </div>
       </div>
 
@@ -543,7 +556,7 @@ function Door({
   );
 }
 
-function PoolItem({ movie, onQuick }: { movie: Movie; onQuick: () => void }) {
+function PoolItem({ movie, onQuick, seen = false }: { movie: Movie; onQuick: () => void; seen?: boolean }) {
   const { setNodeRef, attributes, listeners, isDragging } = useDraggable({ id: `pool:${movie.id}`, data: { movieId: movie.id } });
   const main = primaryOffer(movie.streaming);
   return (
@@ -554,12 +567,19 @@ function PoolItem({ movie, onQuick }: { movie: Movie; onQuick: () => void }) {
       {...listeners}
       role="button"
       onClick={onQuick}
-      aria-label={`Poner ${movie.title} en el próximo día libre`}
+      aria-label={`Poner ${movie.title}${seen ? " (ya vista)" : ""} en el próximo día libre`}
       className={`flex flex-none items-center gap-3 rounded-[14px] p-2 text-left text-ink transition-colors hover:bg-surface-2 max-md:w-[78px] max-md:flex-col max-md:items-start max-md:gap-1.5 max-md:p-0 ${
         isDragging ? "opacity-40" : ""
       } touch-manipulation`}
     >
-      <Poster src={movie.posterUrl} title={movie.title} className="h-[66px] w-11 shrink-0 rounded-lg shadow-[0_2px_8px_rgba(0,0,0,.15)] max-md:h-[112px] max-md:w-[78px] max-md:rounded-[10px]" />
+      <span className="relative shrink-0">
+        <Poster src={movie.posterUrl} title={movie.title} className="h-[66px] w-11 rounded-lg shadow-[0_2px_8px_rgba(0,0,0,.15)] max-md:h-[112px] max-md:w-[78px] max-md:rounded-[10px]" />
+        {seen && (
+          <span aria-hidden className="absolute -right-1.5 -bottom-1.5 grid size-5 place-items-center rounded-full bg-check text-check-ink shadow-[0_2px_6px_rgba(0,0,0,.3)]">
+            <Check className="size-3" strokeWidth={3.2} />
+          </span>
+        )}
+      </span>
       <span className="min-w-0 flex-1 max-md:w-full">
         <span className="block truncate text-[15px] font-semibold max-md:text-[11px]">{movie.title}</span>
         <span className="block text-[13px] text-ink-2 max-md:hidden">
@@ -573,7 +593,7 @@ function PoolItem({ movie, onQuick }: { movie: Movie; onQuick: () => void }) {
   );
 }
 
-function Pool({ movies, onQuick }: { movies: Movie[]; onQuick: (id: string) => void }) {
+function Pool({ movies, seen, onQuick }: { movies: Movie[]; seen: Movie[]; onQuick: (id: string) => void }) {
   const { setNodeRef, isOver } = useDroppable({ id: "pool" });
   return (
     <aside
@@ -605,6 +625,22 @@ function Pool({ movies, onQuick }: { movies: Movie[]; onQuick: (id: string) => v
         </div>
       ) : (
         <div className="rounded-2xl bg-pine-soft px-3 py-5 text-center text-sm font-semibold text-pine">Todas sus películas pendientes tienen día</div>
+      )}
+      {seen.length > 0 && (
+        <div className="flex flex-col gap-2 border-t border-line pt-3.5 max-md:hidden">
+          <h3 className="flex items-center gap-2 text-sm font-bold">
+            <span className="grid size-5 place-items-center rounded-full bg-check text-check-ink">
+              <Check className="size-3" strokeWidth={3.2} aria-hidden />
+            </span>
+            Vistas sin día <span className="font-semibold text-ink-2">({seen.length})</span>
+          </h3>
+          <p className="text-xs leading-snug text-ink-2">Ya las vieron y no están en el calendario. Pueden darles un día si quieren recordarlas o volver a verlas.</p>
+          <div className="flex flex-col gap-1">
+            {seen.map((m) => (
+              <PoolItem key={m.id} movie={m} seen onQuick={() => onQuick(m.id)} />
+            ))}
+          </div>
+        </div>
       )}
       <Link
         href="/peliculas/nueva"
