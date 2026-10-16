@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { AlertTriangle, Check, ChevronLeft, ListPlus, Loader2, Search } from "lucide-react";
+import { AlertTriangle, Check, ChevronLeft, ListPlus, Loader2, Lock, Search } from "lucide-react";
 import { toast } from "sonner";
 import { importMoviesAction, searchMoviesAction } from "@/actions/movies";
 import { usePrefs } from "@/components/providers";
@@ -22,6 +22,8 @@ interface Row {
   choice: string;
   title: string;
   include: boolean;
+  /** Title of the movie already in the library, if the chosen match is a duplicate. */
+  dup?: string;
 }
 
 function toInput(row: Row): MovieInput {
@@ -35,7 +37,7 @@ function toInput(row: Row): MovieInput {
       source: "manual",
     };
   }
-  const { justwatchId: _id, score: _score, ...data } = c;
+  const { justwatchId: _id, score: _score, inLibrary: _in, ...data } = c;
   return { ...data, title: row.title || c.title, source: "auto" };
 }
 
@@ -73,6 +75,8 @@ export function ImportFlow() {
           candidates: res.data,
           choice: good ? best.justwatchId : "manual",
           title: good ? best.title : row.query,
+          dup: good ? best.inLibrary?.title : undefined,
+          include: !(good && best.inLibrary),
         });
       }
     };
@@ -160,7 +164,13 @@ export function ImportFlow() {
                       {r.year ? ` (${r.year})` : ""}
                     </span>
                     {r.status === "done" && !weak && <Check className="size-4 shrink-0 text-check" strokeWidth={3} aria-label="Coincidencia clara" />}
-                    {weak && <AlertTriangle className="size-4 shrink-0 text-gold-ink" strokeWidth={2} aria-label="Revisar" />}
+                    {r.dup && (
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-gold-soft px-2 py-0.5 text-[11px] font-bold text-gold-ink">
+                        <Lock className="size-3" strokeWidth={2.4} aria-hidden />
+                        Ya en tu biblioteca
+                      </span>
+                    )}
+                    {weak && !r.dup && <AlertTriangle className="size-4 shrink-0 text-gold-ink" strokeWidth={2} aria-label="Revisar" />}
                     {r.status === "error" && <span className="text-berry-ink">Error al buscar</span>}
                   </div>
                   <input
@@ -177,13 +187,13 @@ export function ImportFlow() {
                     disabled={r.status !== "done"}
                     onChange={(e) => {
                       const pick = r.candidates.find((x) => x.justwatchId === e.target.value);
-                      patch(r.id, { choice: e.target.value, title: pick ? pick.title : r.query });
+                      patch(r.id, { choice: e.target.value, title: pick ? pick.title : r.query, dup: pick?.inLibrary?.title, include: !pick?.inLibrary });
                     }}
                     className="h-10 w-full min-w-0 rounded-[10px] border border-line bg-field px-2.5 text-sm text-ink"
                   >
                     {r.candidates.map((x) => (
                       <option key={x.justwatchId} value={x.justwatchId}>
-                        {x.title} ({x.year}){x.originalTitle && x.originalTitle !== x.title ? ` · ${x.originalTitle}` : ""}
+                        {x.title} ({x.year}){x.originalTitle && x.originalTitle !== x.title ? ` · ${x.originalTitle}` : ""}{x.inLibrary ? " · ya en tu biblioteca" : ""}
                       </option>
                     ))}
                     <option value="manual">Agregar sin datos (solo título y año)</option>

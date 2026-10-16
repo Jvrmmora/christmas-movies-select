@@ -5,6 +5,8 @@ import { refresh } from "next/cache";
 import { collections, type MovieDoc } from "@/lib/db";
 import { seasonFor } from "@/lib/calendar";
 import { enrich, fetchLatest, lookupMovie } from "@/lib/metadata";
+import { getLibraryIndex } from "@/lib/library";
+import { findInLibrary } from "@/lib/library-match";
 import { firstIssue, movieInputSchema, type MovieInput, type MovieInputParsed } from "@/lib/validation";
 import type { ActionResult, Candidate } from "@/lib/types";
 import { errorMessage, requireOwner } from "./guard";
@@ -40,14 +42,16 @@ async function assignToCalendar(ownerId: string, movieId: string, date: string |
   );
 }
 
-export async function searchMoviesAction(title: string, year?: number): Promise<ActionResult<Candidate[]>> {
+export async function searchMoviesAction(title: string, year?: number, ignoreId?: string): Promise<ActionResult<Candidate[]>> {
   try {
-    await requireOwner();
+    const ownerId = await requireOwner();
     const q = String(title ?? "").trim().slice(0, 200);
     if (!q) return { ok: false, error: "Escribe el nombre de la película" };
     const y = year && Number.isInteger(year) && year > 1880 && year < 2100 ? year : undefined;
-    const candidates = await lookupMovie(q, y);
-    return { ok: true, data: candidates };
+    const [candidates, library] = await Promise.all([lookupMovie(q, y), getLibraryIndex(ownerId)]);
+    // Flag what is already in the library so the form can block it.
+    const flagged = candidates.map((c) => ({ ...c, inLibrary: findInLibrary(library, c, ignoreId) }));
+    return { ok: true, data: flagged };
   } catch (err) {
     return { ok: false, error: errorMessage(err, "No pudimos buscar la película.") };
   }
@@ -58,6 +62,8 @@ export async function createMovieAction(raw: MovieInput): Promise<ActionResult<{
     const ownerId = await requireOwner();
     const parsed = movieInputSchema.safeParse(raw);
     if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
+    const dup = findInLibrary(await getLibraryIndex(ownerId), parsed.data);
+    if (dup) return { ok: false, error: `Ya lo tienes en tu biblioteca: «${dup.title}».` };
     const input = await enrich(parsed.data);
     const now = new Date();
     const { movies } = await collections();
@@ -189,12 +195,18 @@ export async function importMoviesAction(items: MovieInput[]): Promise<ActionRes
     if (!Array.isArray(items) || !items.length) return { ok: false, error: "No hay películas para importar" };
     if (items.length > 100) return { ok: false, error: "Máximo 100 películas por importación" };
     const { movies } = await collections();
+    const library = await getLibraryIndex(ownerId);
     let created = 0;
     const skipped: string[] = [];
     for (const raw of items) {
       const parsed = movieInputSchema.safeParse(raw);
       if (!parsed.success) {
         skipped.push(`${String(raw?.title ?? "?")}: ${firstIssue(parsed.error)}`);
+        continue;
+      }
+      const dup = findInLibrary(library, parsed.data);
+      if (dup) {
+        skipped.push(`${parsed.data.title} (${parsed.data.year}): ya lo tienes en tu biblioteca`);
         continue;
       }
       const input = await enrich(parsed.data);

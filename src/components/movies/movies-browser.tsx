@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Clapperboard, ListPlus, Search, TreePine } from "lucide-react";
+import { Clapperboard, GalleryHorizontal, ListPlus, Search, TreePine } from "lucide-react";
 import { MovieCard } from "./movie-card";
+import { MovieGallery } from "./movie-gallery";
 import { useWatched } from "./watched";
 import { ProviderLogo } from "@/components/ui/poster";
 import { filterKey, subscriptionOffers } from "@/lib/platforms";
@@ -23,6 +24,7 @@ export function MoviesBrowser({ movies, calendar }: { movies: Movie[]; calendar:
   const [genre, setGenre] = useState<string>("all");
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<Sort>("cal");
+  const [galleryAt, setGalleryAt] = useState<number | null>(null);
 
   const dateById = useMemo(() => {
     const map = new Map<string, string>();
@@ -104,10 +106,21 @@ export function MoviesBrowser({ movies, calendar }: { movies: Movie[]; calendar:
             {movies.length} en la lista · {watchedCount} {watchedCount === 1 ? "vista" : "vistas"} · {movies.length - watchedCount} {movies.length - watchedCount === 1 ? "pendiente" : "pendientes"}
           </p>
         </div>
-        <Link href="/peliculas/importar" className="nv-press inline-flex h-11 items-center gap-2 rounded-xl border border-line bg-surface px-4 text-[15px] font-semibold text-ink">
-          <ListPlus className="size-[18px]" strokeWidth={1.8} aria-hidden />
-          Importar lista
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setGalleryAt(0)}
+            disabled={!list.length}
+            className="nv-press inline-flex h-11 items-center gap-2 rounded-xl bg-berry px-4 text-[15px] font-semibold text-white disabled:opacity-50"
+          >
+            <GalleryHorizontal className="size-[18px]" strokeWidth={2} aria-hidden />
+            Explorar en galería
+          </button>
+          <Link href="/peliculas/importar" className="nv-press inline-flex h-11 items-center gap-2 rounded-xl border border-line bg-surface px-4 text-[15px] font-semibold text-ink">
+            <ListPlus className="size-[18px]" strokeWidth={1.8} aria-hidden />
+            Importar lista
+          </Link>
+        </div>
       </div>
 
       <div className="flex flex-col gap-3.5">
@@ -196,6 +209,7 @@ export function MoviesBrowser({ movies, calendar }: { movies: Movie[]; calendar:
                 onToggle={() => toggle(m.id)}
                 dateLabel={key ? monthShort.format(parseKey(key)).replace(".", "") : undefined}
                 delay={Math.min(i, 12) * 0.03}
+                onExplore={() => setGalleryAt(i)}
               />
             );
           })}
@@ -218,6 +232,14 @@ export function MoviesBrowser({ movies, calendar }: { movies: Movie[]; calendar:
           )}
         </div>
       )}
+      <MovieGallery
+        movies={list}
+        startAt={galleryAt ?? 0}
+        open={galleryAt !== null}
+        onClose={() => setGalleryAt(null)}
+        isWatched={isWatched}
+        onToggleWatched={toggle}
+      />
     </div>
   );
 }

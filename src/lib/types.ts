@@ -56,6 +56,8 @@ export interface Movie extends MovieData {
 export interface Candidate extends MovieData {
   justwatchId: string;
   score: number;
+  /** Set by the server when the household already has this movie. */
+  inLibrary?: { id: string; title: string } | null;
 }
 
 export type RangePreset = "today" | "oct" | "nov" | "dec" | "novena" | "custom";

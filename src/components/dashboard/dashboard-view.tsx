@@ -7,6 +7,7 @@ import { CalendarDays, Gift, ListPlus, Moon, Pencil, Sun, Sunset } from "lucide-
 import { toast } from "sonner";
 import { useNow } from "@/components/use-now";
 import { usePrefs } from "@/components/providers";
+import { ChristmasCountdown } from "./christmas-countdown";
 import { MovieCard } from "@/components/movies/movie-card";
 import { useWatched, WatchedButton } from "@/components/movies/watched";
 import { Poster, ProviderLogo } from "@/components/ui/poster";
@@ -18,7 +19,6 @@ import { parseKey, toKey } from "@/lib/calendar";
 import { primaryOffer } from "@/lib/platforms";
 import type { CalendarState, Movie } from "@/lib/types";
 
-const pad = (n: number) => String(n).padStart(2, "0");
 const dayFmt = new Intl.DateTimeFormat("es-CO", { weekday: "long", day: "numeric", month: "long" });
 const monthShort = new Intl.DateTimeFormat("es-CO", { month: "short" });
 
@@ -186,21 +186,8 @@ function GreetingCard({ now, displayName, pendingCount, hasToday }: { now: Date 
           </button>
         </p>
       )}
-      <div className="relative mt-9">
-        <div className="mb-2.5 text-[13px] font-semibold text-ink-2">{cd?.isToday ? "¡Hoy es Nochebuena!" : "Faltan para Nochebuena"}</div>
-        <div className="flex flex-wrap gap-2.5">
-          {[
-            { v: cd ? String(cd.days) : "—", l: "días" },
-            { v: cd ? pad(cd.hours) : "—", l: "horas" },
-            { v: cd ? pad(cd.minutes) : "—", l: "min" },
-            { v: cd ? pad(cd.seconds) : "—", l: "seg" },
-          ].map((c) => (
-            <div key={c.l} className="min-w-[76px] rounded-[18px] bg-surface-2 px-4 pt-3.5 pb-3 text-center sm:min-w-[92px]">
-              <div className="text-[32px] leading-none font-bold tracking-[-0.03em] tabular-nums sm:text-[38px]">{c.v}</div>
-              <div className="mt-1.5 text-xs font-semibold tracking-[0.06em] text-ink-2 uppercase">{c.l}</div>
-            </div>
-          ))}
-        </div>
+      <div className="relative mt-8">
+        <ChristmasCountdown parts={cd} />
       </div>
     </div>
   );
@@ -210,7 +197,7 @@ function ProgressCard({ watched, total, pending, hours, season }: { watched: num
   const C = 2 * Math.PI * 78;
   const dash = total ? (watched / total) * C : 0;
   return (
-    <div className="nv-fade flex flex-[1_1_300px] flex-col items-center gap-6 rounded-[28px] bg-surface p-8 shadow-card" style={{ animationDelay: "0.08s" }}>
+    <div className="nv-fade flex flex-[1_1_300px] flex-col items-center gap-6 self-start rounded-[28px] bg-surface p-8 shadow-card" style={{ animationDelay: "0.08s" }}>
       <div className="flex items-center justify-between self-stretch">
         <h2 className="text-[17px] font-semibold">Su progreso</h2>
         <span className="text-[13px] text-ink-2">Temporada {season}</span>
