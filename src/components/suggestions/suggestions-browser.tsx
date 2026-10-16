@@ -8,6 +8,7 @@ import { createMovieAction } from "@/actions/movies";
 import { usePrefs } from "@/components/providers";
 import { Poster, ProviderLogo } from "@/components/ui/poster";
 import { RatingBadges } from "@/components/ui/rating-badges";
+import { SuggestionDetail } from "./suggestion-detail";
 import { candidateToInput } from "@/lib/candidate";
 import { formatRuntime } from "@/lib/format";
 import { filterKey, subscriptionOffers } from "@/lib/platforms";
@@ -23,6 +24,7 @@ export function SuggestionsBrowser({ suggestions, totalCatalog }: { suggestions:
   const [onlyAvailable, setOnlyAvailable] = useState(false);
   const [platform, setPlatform] = useState("all");
   const [sort, setSort] = useState<Sort>("imdb");
+  const [detail, setDetail] = useState<Candidate | null>(null);
 
   const platforms = useMemo(() => {
     const map = new Map<string, { key: string; name: string; logoUrl?: string; count: number }>();
@@ -71,6 +73,7 @@ export function SuggestionsBrowser({ suggestions, totalCatalog }: { suggestions:
         return;
       }
       setAdded((s) => new Set(s).add(c.justwatchId));
+      setDetail((d) => (d?.justwatchId === c.justwatchId ? null : d));
       play("jingle");
       toast.success(`«${c.title}» quedó en tu lista`);
     });
@@ -134,7 +137,9 @@ export function SuggestionsBrowser({ suggestions, totalCatalog }: { suggestions:
             return (
               <li key={c.justwatchId} className="nv-fade flex min-w-0 flex-col gap-2.5" style={{ animationDelay: `${Math.min(i, 12) * 0.03}s` }}>
                 <div className="relative aspect-[2/3] overflow-hidden rounded-2xl shadow-card">
-                  <Poster src={c.posterUrl} title={c.title} className="h-full w-full" />
+                  <button type="button" onClick={() => setDetail(c)} aria-label={`Ver detalle de ${c.title}`} className="block h-full w-full">
+                    <Poster src={c.posterUrl} title={c.title} className="h-full w-full" />
+                  </button>
                   <button
                     type="button"
                     onClick={() => add(c)}
@@ -147,7 +152,9 @@ export function SuggestionsBrowser({ suggestions, totalCatalog }: { suggestions:
                   </button>
                 </div>
                 <div className="min-w-0">
-                  <div className="truncate text-[15px] font-semibold">{c.title}</div>
+                  <button type="button" onClick={() => setDetail(c)} className="block max-w-full truncate text-left text-[15px] font-semibold hover:underline">
+                    {c.title}
+                  </button>
                   <div className="truncate text-[13px] text-ink-2">
                     {c.year}
                     {c.runtimeMinutes ? ` · ${formatRuntime(c.runtimeMinutes)}` : ""}
@@ -176,6 +183,7 @@ export function SuggestionsBrowser({ suggestions, totalCatalog }: { suggestions:
           </p>
         </div>
       )}
+      <SuggestionDetail movie={detail} busy={!!detail && adding === detail.justwatchId} onAdd={add} onClose={() => setDetail(null)} />
     </div>
   );
 }
