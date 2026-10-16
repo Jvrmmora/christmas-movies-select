@@ -101,3 +101,23 @@ export function monthCells(monthKey: string, inRange: Map<string, number>): Mont
 export function freeDays(days: string[], assignments: Record<string, string>, fromKey: string): string[] {
   return days.filter((k) => k >= fromKey && !assignments[k]);
 }
+
+/**
+ * Spreads `movieIds` over the free days of the range.
+ * - Each movie leaves any day it already had (including days outside the current range),
+ *   so it can never end up assigned twice.
+ * - Days from `fromKey` on come first; earlier free days are used only if the movies don't fit.
+ */
+export function planAutoFill(
+  days: string[],
+  assignments: Record<string, string>,
+  movieIds: string[],
+  fromKey: string,
+): { next: Record<string, string>; placed: number; left: number } {
+  const moving = new Set(movieIds);
+  const next = Object.fromEntries(Object.entries(assignments).filter(([, id]) => !moving.has(id)));
+  const free = [...days.filter((k) => k >= fromKey && !next[k]), ...days.filter((k) => k < fromKey && !next[k])];
+  const placed = Math.min(movieIds.length, free.length);
+  for (let i = 0; i < placed; i++) next[free[i]] = movieIds[i];
+  return { next, placed, left: movieIds.length - placed };
+}

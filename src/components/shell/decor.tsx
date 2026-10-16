@@ -74,8 +74,10 @@ export function Garland() {
 export function BrandMark({ className = "size-9 rounded-[11px]" }: { className?: string }) {
   return (
     <span className={`grid shrink-0 place-items-center bg-berry text-white ${className}`}>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-        <path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.5 1.3 6.6L12 17.2l-5.9 3.3 1.3-6.6L2.5 9.4l6.6-.8z" />
+      <svg viewBox="0 0 64 64" className="size-[62%]" aria-hidden>
+        <path d="M32 6l2.3 4.6 5.1.7-3.7 3.6.9 5-4.6-2.4-4.6 2.4.9-5-3.7-3.6 5.1-.7z" fill="#F2C14E" />
+        <path d="M32 19l9 11h-5l8 10h-6l9 11H17l9-11h-6l8-10h-5z" fill="currentColor" />
+        <rect x="29" y="51" width="6" height="7" rx="1" fill="currentColor" />
       </svg>
     </span>
   );
