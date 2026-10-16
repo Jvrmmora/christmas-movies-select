@@ -3,11 +3,14 @@
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { Check, Loader2, PartyPopper, Plus, Sparkles } from "lucide-react";
+import type { SuggestionCursor } from "@/lib/suggestions-more";
 import { toast } from "sonner";
 import { createMovieAction } from "@/actions/movies";
+import { loadMoreSuggestionsAction } from "@/actions/suggestions";
 import { usePrefs } from "@/components/providers";
 import { Poster, ProviderLogo } from "@/components/ui/poster";
 import { RatingBadges } from "@/components/ui/rating-badges";
+import { SuggestionDetail } from "./suggestion-detail";
 import { candidateToInput } from "@/lib/candidate";
 import { formatRuntime } from "@/lib/format";
 import { filterKey, subscriptionOffers } from "@/lib/platforms";
@@ -15,7 +18,7 @@ import type { Candidate } from "@/lib/types";
 
 type Sort = "imdb" | "rt" | "recent" | "classic";
 
-export function SuggestionsBrowser({ suggestions, totalCatalog }: { suggestions: Candidate[]; totalCatalog: number }) {
+export function SuggestionsBrowser({ suggestions: initial, totalCatalog }: { suggestions: Candidate[]; totalCatalog: number }) {
   const { play } = usePrefs();
   const [added, setAdded] = useState<Set<string>>(new Set());
   const [adding, setAdding] = useState<string | null>(null);
@@ -23,6 +26,13 @@ export function SuggestionsBrowser({ suggestions, totalCatalog }: { suggestions:
   const [onlyAvailable, setOnlyAvailable] = useState(false);
   const [platform, setPlatform] = useState("all");
   const [sort, setSort] = useState<Sort>("imdb");
+  const [detail, setDetail] = useState<Candidate | null>(null);
+  const [more, setMore] = useState<Candidate[]>([]);
+  const [cursor, setCursor] = useState<SuggestionCursor | null>(null);
+  const [exhausted, setExhausted] = useState(false);
+  const [loadingMore, startLoadingMore] = useTransition();
+  // Everything ever shown stays in `suggestions`, so "load more" can never repeat a card.
+  const suggestions = useMemo(() => [...initial, ...more], [initial, more]);
 
   const platforms = useMemo(() => {
     const map = new Map<string, { key: string; name: string; logoUrl?: string; count: number }>();
@@ -61,6 +71,28 @@ export function SuggestionsBrowser({ suggestions, totalCatalog }: { suggestions:
       }
     });
 
+  const loadMore = () => {
+    startLoadingMore(async () => {
+      const res = await loadMoreSuggestionsAction(
+        suggestions.map((c) => c.justwatchId),
+        cursor,
+      );
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      const known = new Set(suggestions.map((c) => c.justwatchId));
+      const fresh = res.data.items.filter((c) => !known.has(c.justwatchId));
+      setMore((m) => [...m, ...fresh]);
+      setCursor(res.data.cursor);
+      if (!res.data.cursor) setExhausted(true);
+      if (fresh.length) {
+        play("jingle");
+        toast.success(`${fresh.length} sugeridas nuevas`);
+      } else if (res.data.cursor) toast("No salió nada nuevo en esta tanda. Prueben de nuevo.");
+    });
+  };
+
   const add = (c: Candidate) => {
     setAdding(c.justwatchId);
     startTransition(async () => {
@@ -71,6 +103,7 @@ export function SuggestionsBrowser({ suggestions, totalCatalog }: { suggestions:
         return;
       }
       setAdded((s) => new Set(s).add(c.justwatchId));
+      setDetail((d) => (d?.justwatchId === c.justwatchId ? null : d));
       play("jingle");
       toast.success(`«${c.title}» quedó en tu lista`);
     });
@@ -134,7 +167,9 @@ export function SuggestionsBrowser({ suggestions, totalCatalog }: { suggestions:
             return (
               <li key={c.justwatchId} className="nv-fade flex min-w-0 flex-col gap-2.5" style={{ animationDelay: `${Math.min(i, 12) * 0.03}s` }}>
                 <div className="relative aspect-[2/3] overflow-hidden rounded-2xl shadow-card">
-                  <Poster src={c.posterUrl} title={c.title} className="h-full w-full" />
+                  <button type="button" onClick={() => setDetail(c)} aria-label={`Ver detalle de ${c.title}`} className="block h-full w-full">
+                    <Poster src={c.posterUrl} title={c.title} className="h-full w-full" />
+                  </button>
                   <button
                     type="button"
                     onClick={() => add(c)}
@@ -147,7 +182,9 @@ export function SuggestionsBrowser({ suggestions, totalCatalog }: { suggestions:
                   </button>
                 </div>
                 <div className="min-w-0">
-                  <div className="truncate text-[15px] font-semibold">{c.title}</div>
+                  <button type="button" onClick={() => setDetail(c)} className="block max-w-full truncate text-left text-[15px] font-semibold hover:underline">
+                    {c.title}
+                  </button>
                   <div className="truncate text-[13px] text-ink-2">
                     {c.year}
                     {c.runtimeMinutes ? ` · ${formatRuntime(c.runtimeMinutes)}` : ""}
@@ -176,6 +213,25 @@ export function SuggestionsBrowser({ suggestions, totalCatalog }: { suggestions:
           </p>
         </div>
       )}
+      <div className="flex flex-col items-center gap-3 pt-2">
+        {exhausted ? (
+          <p className="rounded-2xl bg-surface-2 px-5 py-3 text-sm font-semibold text-ink-2">Ya no hay más sugeridas por ahora. ¡Vuelvan pronto!</p>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={loadMore}
+              disabled={loadingMore}
+              className="nv-press inline-flex h-14 w-full max-w-[420px] items-center justify-center gap-2.5 rounded-2xl bg-berry px-6 text-base font-bold text-white shadow-[0_10px_28px_rgba(200,16,46,.35)] disabled:opacity-80"
+            >
+              {loadingMore ? <Loader2 className="nv-spin size-5" aria-hidden /> : <Sparkles className="size-5" strokeWidth={2} aria-hidden />}
+              {loadingMore ? "Buscando más películas…" : "Cargar más sugeridas"}
+            </button>
+            <p className="text-xs text-ink-2">Sin repetir las que ya vieron aquí ni las que ya están en su lista.</p>
+          </>
+        )}
+      </div>
+      <SuggestionDetail movie={detail} busy={!!detail && adding === detail.justwatchId} onAdd={add} onClose={() => setDetail(null)} />
     </div>
   );
 }
