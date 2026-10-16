@@ -12,13 +12,19 @@ export const GREETING: Record<DayPeriod, string> = {
   night: "Buenas noches",
 };
 
-/** Time left until Christmas Eve (Dec 24, 00:00 local). */
+/**
+ * Time left until Christmas: the stroke of midnight between Dec 24 and Dec 25, in the
+ * viewer's own timezone. During Dec 25 it reports `isChristmas`; from Dec 26 it
+ * counts down to next year.
+ */
 export function countdownTo(now: Date) {
-  let target = new Date(now.getFullYear(), 11, 24);
-  if (now >= new Date(now.getFullYear(), 11, 25)) target = new Date(now.getFullYear() + 1, 11, 24);
-  const diff = Math.max(0, target.getTime() - now.getTime());
+  const year = now.getFullYear();
+  const startOfChristmas = new Date(year, 11, 25);
+  const isChristmas = now >= startOfChristmas && now < new Date(year, 11, 26);
+  const target = now >= new Date(year, 11, 26) ? new Date(year + 1, 11, 25) : startOfChristmas;
+  const diff = isChristmas ? 0 : Math.max(0, target.getTime() - now.getTime());
   return {
-    isToday: diff === 0,
+    isChristmas,
     days: Math.floor(diff / 864e5),
     hours: Math.floor(diff / 36e5) % 24,
     minutes: Math.floor(diff / 6e4) % 60,
