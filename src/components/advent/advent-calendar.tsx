@@ -17,18 +17,18 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { Check, ExternalLink, Gift, GripVertical, Plus, Shuffle, Star, Trash2, WandSparkles } from "lucide-react";
+import { CalendarDays, Check, Clapperboard, ExternalLink, Gift, GripVertical, Play, Plus, Shuffle, Star, Trash2, WandSparkles } from "lucide-react";
 import { toast } from "sonner";
 import { saveCalendarAction } from "@/actions/calendar";
 import { usePrefs } from "@/components/providers";
 import { useNow } from "@/components/use-now";
 import { useWatched, WatchedButton } from "@/components/movies/watched";
 import { Poster, ProviderLogo } from "@/components/ui/poster";
-import { RatingBadges } from "@/components/ui/rating-badges";
+import { ImdbLogo, RtLogo } from "@/components/ui/rating-badges";
 import { CloseButton, Dialog } from "@/components/ui/dialog";
 import { SwitchTrack } from "@/components/ui/switch";
-import { freeDays, MONTH_NAMES, monthCells, parseKey, PRESETS, presetStart, rangeDays, toKey } from "@/lib/calendar";
-import { formatRuntime } from "@/lib/format";
+import { freeDays, MONTH_NAMES, monthCells, parseKey, planAutoFill, PRESETS, presetStart, rangeDays, toKey } from "@/lib/calendar";
+import { formatRuntime, formatScore, OFFER_GROUP_LABEL } from "@/lib/format";
 import { primaryOffer } from "@/lib/platforms";
 import type { CalendarState, Movie, RangePreset } from "@/lib/types";
 
@@ -68,6 +68,9 @@ export function AdventCalendar({ movies, calendar }: { movies: Movie[]; calendar
   const pool = movies
     .filter((m) => !assignedIds.has(m.id) && !isWatched(m.id))
     .sort((a, b) => Number(b.favorite) - Number(a.favorite) || (b.ratings.imdb ?? 0) - (a.ratings.imdb ?? 0));
+
+  // Watched movies with no day in this range: not in the pool, but never hidden.
+  const seenNoDay = movies.filter((m) => !assignedIds.has(m.id) && isWatched(m.id));
 
   const monthKeys = [...new Set(days.map((k) => k.slice(0, 7)))];
   const currentMonth =
@@ -125,18 +128,19 @@ export function AdventCalendar({ movies, calendar }: { movies: Movie[]; calendar
   };
 
   const autoFill = () => {
-    const free = freeDays(days, cal.assignments, fromKey);
-    if (!pool.length || !free.length) {
-      toast(pool.length ? "No quedan días libres." : "Todas las películas pendientes ya tienen día.");
+    if (!pool.length) {
+      toast("Todas las películas pendientes ya tienen día.");
       return;
     }
-    const next = { ...cal.assignments };
-    pool.forEach((m, i) => {
-      if (free[i]) next[free[i]] = m.id;
-    });
+    const { next, placed, left } = planAutoFill(days, cal.assignments, pool.map((m) => m.id), fromKey);
+    if (!placed) {
+      toast("No quedan días libres en el rango elegido.");
+      return;
+    }
     persist({ assignments: next });
     play("jingle");
-    toast.success(`${Math.min(pool.length, free.length)} películas repartidas`);
+    if (left) toast(`${placed} repartidas. ${left} no caben en este rango: elijan una fecha de inicio más temprana.`);
+    else toast.success(`${placed} ${placed === 1 ? "película repartida" : "películas repartidas"}`);
   };
 
   const shuffle = () => {
@@ -204,13 +208,27 @@ export function AdventCalendar({ movies, calendar }: { movies: Movie[]; calendar
             </p>
           </div>
           <div className="flex flex-wrap gap-2 text-sm font-semibold tabular-nums">
-            <span className="inline-flex h-9 items-center rounded-full bg-surface px-3.5 shadow-card">{days.length} días</span>
-            <span className="inline-flex h-9 items-center rounded-full bg-pine-soft px-3.5 text-pine">{assignedCount} con película</span>
-            <span className="inline-flex h-9 items-center rounded-full bg-gold-soft px-3.5 text-gold-ink">{days.length - assignedCount} libres</span>
+            <span className="inline-flex h-9 items-center rounded-full bg-surface px-3.5 shadow-card">{days.length} días en total</span>
+            <span className="inline-flex h-9 items-center rounded-full bg-pine-soft px-3.5 text-pine">{assignedCount} días con película</span>
+            <span className="inline-flex h-9 items-center rounded-full bg-gold-soft px-3.5 text-gold-ink">{days.length - assignedCount} días libres</span>
+            {pool.length > 0 && (
+              <span className="inline-flex h-9 items-center rounded-full bg-berry-soft px-3.5 text-berry-ink">
+                {pool.length} {pool.length === 1 ? "película sin día" : "películas sin día"}
+              </span>
+            )}
+            {seenNoDay.length > 0 && (
+              <span className="inline-flex h-9 items-center rounded-full bg-surface-2 px-3.5 text-ink-2">
+                {seenNoDay.length} {seenNoDay.length === 1 ? "vista sin día" : "vistas sin día"}
+              </span>
+            )}
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 rounded-[20px] bg-surface p-3 shadow-card sm:p-4">
+        <div className="flex flex-wrap items-center gap-3 rounded-[20px] border border-line border-l-4 border-l-gold bg-surface p-3 shadow-card sm:p-4">
+          <span className="hidden items-center gap-2 pr-1 text-xs font-bold tracking-[0.08em] text-gold-ink uppercase lg:inline-flex">
+            <CalendarDays className="size-4" strokeWidth={2} aria-hidden />
+            Empezar
+          </span>
           <div role="group" aria-label="Desde cuándo" className="nv-no-scrollbar flex max-w-full gap-1 overflow-x-auto rounded-[14px] bg-surface-2 p-1">
             {PRESETS.map((p) => {
               const on = cal.preset === p.key;
@@ -275,7 +293,18 @@ export function AdventCalendar({ movies, calendar }: { movies: Movie[]; calendar
         </div>
 
         <div className="flex flex-wrap items-start gap-6">
-          <section aria-label="Días" className="flex min-w-0 flex-[999_1_640px] flex-col gap-4 rounded-[28px] bg-surface p-3 shadow-card sm:p-6">
+          <section aria-label="Días" className="flex min-w-0 flex-[999_1_640px] flex-col gap-4 rounded-[28px] border border-line border-t-4 border-t-berry bg-surface p-3 shadow-card sm:p-6">
+            <div className="flex items-center gap-3">
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-berry-soft text-berry-ink">
+                <CalendarDays className="size-5" strokeWidth={1.8} aria-hidden />
+              </span>
+              <div className="min-w-0">
+                <h2 className="text-lg leading-tight font-bold">Su calendario</h2>
+                <p className="text-[13px] text-ink-2">
+                  {assignedCount} de {days.length} días con película
+                </p>
+              </div>
+            </div>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div role="tablist" aria-label="Mes" className="flex gap-1 rounded-[14px] bg-surface-2 p-1">
                 {monthKeys.map((mk) => {
@@ -318,7 +347,7 @@ export function AdventCalendar({ movies, calendar }: { movies: Movie[]; calendar
                 </span>
               </div>
             </div>
-            <div aria-hidden className="grid grid-cols-7 gap-1.5 text-center text-[11px] font-bold tracking-[0.08em] text-ink-2 sm:gap-3 sm:text-xs">
+            <div aria-hidden className="grid grid-cols-7 gap-1.5 rounded-xl bg-surface-2 py-2 text-center text-[11px] font-bold tracking-[0.08em] text-ink-2 sm:gap-3 sm:text-xs">
               {WEEKDAYS.map((d) => (
                 <span key={d}>
                   <span className="sm:hidden">{d[0]}</span>
@@ -331,7 +360,7 @@ export function AdventCalendar({ movies, calendar }: { movies: Movie[]; calendar
                 if (c.kind === "blank") return <div key={c.id} aria-hidden className="aspect-[3/4]" />;
                 if (c.kind === "out")
                   return (
-                    <div key={c.id} aria-hidden className="grid aspect-[3/4] place-items-center text-[13px] text-ink-2 opacity-40 tabular-nums sm:text-[15px]">
+                    <div key={c.id} aria-hidden className="grid aspect-[3/4] place-items-center rounded-[10px] bg-surface-2/60 text-[13px] text-ink-2 opacity-60 tabular-nums sm:rounded-[14px] sm:text-[15px]">
                       {c.day}
                     </div>
                   );
@@ -366,7 +395,7 @@ export function AdventCalendar({ movies, calendar }: { movies: Movie[]; calendar
             </div>
           </section>
 
-          <Pool movies={pool} onQuick={quickAssign} />
+          <Pool movies={pool} seen={seenNoDay} onQuick={quickAssign} />
         </div>
       </div>
 
@@ -383,6 +412,7 @@ export function AdventCalendar({ movies, calendar }: { movies: Movie[]; calendar
             dayKey={openKey}
             index={inRange.get(openKey) ?? 0}
             total={days.length}
+            isToday={openKey === todayKey}
             watched={isWatched(openMovie.id)}
             onToggle={() => toggle(openMovie.id)}
             onUnassign={() => {
@@ -526,7 +556,7 @@ function Door({
   );
 }
 
-function PoolItem({ movie, onQuick }: { movie: Movie; onQuick: () => void }) {
+function PoolItem({ movie, onQuick, seen = false }: { movie: Movie; onQuick: () => void; seen?: boolean }) {
   const { setNodeRef, attributes, listeners, isDragging } = useDraggable({ id: `pool:${movie.id}`, data: { movieId: movie.id } });
   const main = primaryOffer(movie.streaming);
   return (
@@ -537,12 +567,19 @@ function PoolItem({ movie, onQuick }: { movie: Movie; onQuick: () => void }) {
       {...listeners}
       role="button"
       onClick={onQuick}
-      aria-label={`Poner ${movie.title} en el próximo día libre`}
+      aria-label={`Poner ${movie.title}${seen ? " (ya vista)" : ""} en el próximo día libre`}
       className={`flex flex-none items-center gap-3 rounded-[14px] p-2 text-left text-ink transition-colors hover:bg-surface-2 max-md:w-[78px] max-md:flex-col max-md:items-start max-md:gap-1.5 max-md:p-0 ${
         isDragging ? "opacity-40" : ""
       } touch-manipulation`}
     >
-      <Poster src={movie.posterUrl} title={movie.title} className="h-[66px] w-11 shrink-0 rounded-lg shadow-[0_2px_8px_rgba(0,0,0,.15)] max-md:h-[112px] max-md:w-[78px] max-md:rounded-[10px]" />
+      <span className="relative shrink-0">
+        <Poster src={movie.posterUrl} title={movie.title} className="h-[66px] w-11 rounded-lg shadow-[0_2px_8px_rgba(0,0,0,.15)] max-md:h-[112px] max-md:w-[78px] max-md:rounded-[10px]" />
+        {seen && (
+          <span aria-hidden className="absolute -right-1.5 -bottom-1.5 grid size-5 place-items-center rounded-full bg-check text-check-ink shadow-[0_2px_6px_rgba(0,0,0,.3)]">
+            <Check className="size-3" strokeWidth={3.2} />
+          </span>
+        )}
+      </span>
       <span className="min-w-0 flex-1 max-md:w-full">
         <span className="block truncate text-[15px] font-semibold max-md:text-[11px]">{movie.title}</span>
         <span className="block text-[13px] text-ink-2 max-md:hidden">
@@ -556,21 +593,26 @@ function PoolItem({ movie, onQuick }: { movie: Movie; onQuick: () => void }) {
   );
 }
 
-function Pool({ movies, onQuick }: { movies: Movie[]; onQuick: (id: string) => void }) {
+function Pool({ movies, seen, onQuick }: { movies: Movie[]; seen: Movie[]; onQuick: (id: string) => void }) {
   const { setNodeRef, isOver } = useDroppable({ id: "pool" });
   return (
     <aside
       ref={setNodeRef}
       aria-labelledby="pool-title"
-      className={`flex flex-col gap-3.5 bg-surface p-4 transition-shadow max-md:fixed max-md:inset-x-0 max-md:bottom-[calc(70px+env(safe-area-inset-bottom))] max-md:z-20 max-md:rounded-t-3xl max-md:shadow-[0_-10px_30px_rgba(0,0,0,.12)] md:sticky md:top-28 md:flex-[1_1_280px] md:rounded-[28px] md:p-5 ${
+      className={`flex flex-col gap-3.5 border border-line bg-surface p-4 transition-shadow md:border-t-4 md:border-t-pine max-md:fixed max-md:inset-x-0 max-md:bottom-[calc(70px+env(safe-area-inset-bottom))] max-md:z-20 max-md:rounded-t-3xl max-md:shadow-[0_-10px_30px_rgba(0,0,0,.12)] md:sticky md:top-28 md:flex-[1_1_280px] md:rounded-[28px] md:p-5 ${
         isOver ? "shadow-[0_0_0_3px_var(--pine),var(--shadow)]" : "md:shadow-card"
       }`}
     >
       <div>
-        <h2 id="pool-title" className="text-base font-bold md:text-[19px]">
-          Sin asignar <span className="font-semibold text-ink-2">({movies.length})</span>
-        </h2>
-        <p className="mt-1 hidden text-[13px] leading-snug text-ink-2 md:block">
+        <div className="flex items-center gap-3">
+          <span className="hidden size-10 shrink-0 place-items-center rounded-xl bg-pine-soft text-pine md:grid">
+            <Clapperboard className="size-5" strokeWidth={1.8} aria-hidden />
+          </span>
+          <h2 id="pool-title" className="text-base font-bold md:text-lg">
+            Sin asignar <span className="font-semibold text-ink-2">({movies.length})</span>
+          </h2>
+        </div>
+        <p className="mt-2 hidden text-[13px] leading-snug text-ink-2 md:block">
           Arrastren una película a un día, o tóquenla para ponerla en el próximo día libre. Para quitarla de un día, arrástrenla de vuelta aquí.
         </p>
         <p className="mt-0.5 text-xs text-ink-2 md:hidden">Toquen una para el próximo día libre o manténganla presionada para arrastrarla.</p>
@@ -583,6 +625,22 @@ function Pool({ movies, onQuick }: { movies: Movie[]; onQuick: (id: string) => v
         </div>
       ) : (
         <div className="rounded-2xl bg-pine-soft px-3 py-5 text-center text-sm font-semibold text-pine">Todas sus películas pendientes tienen día</div>
+      )}
+      {seen.length > 0 && (
+        <div className="flex flex-col gap-2 border-t border-line pt-3.5 max-md:hidden">
+          <h3 className="flex items-center gap-2 text-sm font-bold">
+            <span className="grid size-5 place-items-center rounded-full bg-check text-check-ink">
+              <Check className="size-3" strokeWidth={3.2} aria-hidden />
+            </span>
+            Vistas sin día <span className="font-semibold text-ink-2">({seen.length})</span>
+          </h3>
+          <p className="text-xs leading-snug text-ink-2">Ya las vieron y no están en el calendario. Pueden darles un día si quieren recordarlas o volver a verlas.</p>
+          <div className="flex flex-col gap-1">
+            {seen.map((m) => (
+              <PoolItem key={m.id} movie={m} seen onQuick={() => onQuick(m.id)} />
+            ))}
+          </div>
+        </div>
       )}
       <Link
         href="/peliculas/nueva"
@@ -600,6 +658,7 @@ function DoorDialog({
   dayKey,
   index,
   total,
+  isToday,
   watched,
   onToggle,
   onUnassign,
@@ -609,51 +668,142 @@ function DoorDialog({
   dayKey: string;
   index: number;
   total: number;
+  isToday: boolean;
   watched: boolean;
   onToggle: () => void;
   onUnassign: () => void;
   onClose: () => void;
 }) {
   const main = primaryOffer(movie.streaming);
+  const groups = (["flatrate", "free", "ads", "rent", "buy"] as const)
+    .map((type) => ({ type, items: movie.streaming.filter((o) => o.type === type) }))
+    .filter((g) => g.items.length);
+  const date = longFmt.format(parseKey(dayKey));
+
   return (
-    <div className="nv-flip relative flex w-[min(740px,100vw)] flex-wrap overflow-hidden rounded-t-[28px] bg-surface shadow-[0_30px_80px_rgba(0,0,0,.45)] sm:rounded-[28px]">
-      <Poster src={movie.posterUrl} title={movie.title} eager className="aspect-[2/3] max-w-[300px] flex-[1_1_240px] max-sm:hidden" />
-      <div className="flex min-w-0 flex-[999_1_300px] flex-col gap-3.5 p-6 pt-8 sm:p-7 sm:pt-8">
-        <div className="flex items-start gap-3.5">
-          <Poster src={movie.posterUrl} title={movie.title} className="h-[120px] w-20 shrink-0 rounded-xl shadow-card sm:hidden" />
-          <div className="min-w-0">
-            <div className="pr-10 text-[13px] font-bold tracking-[0.06em] text-gold-ink uppercase">
-              Día {index} de {total} · {longFmt.format(parseKey(dayKey))}
+    <div className="nv-flip relative flex max-h-[92dvh] w-screen flex-col overflow-y-auto rounded-t-[28px] bg-surface shadow-[0_30px_80px_rgba(0,0,0,.5)] sm:h-[min(780px,90dvh)] sm:max-h-none sm:w-[min(1120px,calc(100vw-48px))] sm:flex-row sm:overflow-hidden sm:rounded-[32px]">
+      {/* Poster column, tinted with the movie's own artwork */}
+      <div className="relative h-[300px] shrink-0 overflow-hidden bg-surface-2 sm:h-auto sm:w-[36%] sm:max-w-[400px]">
+        <Poster src={movie.backdropUrl || movie.posterUrl} title="" className="absolute inset-0 scale-125 opacity-60 blur-2xl" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/10 to-black/40" />
+        <div className="absolute inset-0 flex items-center justify-center p-6 sm:p-10">
+          <Poster src={movie.posterUrl} title={movie.title} eager className="aspect-[2/3] h-[236px] shrink-0 rounded-2xl shadow-[0_24px_60px_rgba(0,0,0,.55)] ring-1 ring-white/20 sm:h-auto sm:w-[min(100%,calc((min(780px,90dvh)-80px)*0.6667))]" />
+        </div>
+      </div>
+
+      {/* Details */}
+      <div className="flex min-w-0 flex-1 flex-col sm:overflow-y-auto">
+        <div className="flex flex-col gap-6 p-6 pt-7 sm:p-10 sm:pt-11">
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center gap-2 pr-12">
+              <span className="inline-flex h-8 items-center gap-1.5 rounded-full bg-gold-soft px-3.5 text-xs font-bold tracking-[0.06em] text-gold-ink uppercase">
+                <CalendarDays className="size-3.5" strokeWidth={2.2} aria-hidden />
+                Día {index} de {total}
+              </span>
+              <span className="text-sm font-semibold text-ink-2 first-letter:uppercase">{date}</span>
+              {isToday && <span className="inline-flex h-7 items-center rounded-full bg-gold px-3 text-[11px] font-extrabold tracking-[0.08em] text-[#1C1C1E]">HOY</span>}
             </div>
-            <h2 id="door-title" className="mt-2 text-[26px] leading-[1.1] font-bold tracking-[-0.02em] sm:text-[32px]">
+            <h2 id="door-title" className="text-[34px] leading-[1.05] font-bold tracking-[-0.03em] sm:text-[48px]">
               <Link href={`/peliculas/${movie.id}`} className="hover:underline">
                 {movie.title}
               </Link>
             </h2>
+            <p className="text-base text-ink-2">
+              {[movie.originalTitle && movie.originalTitle !== movie.title ? movie.originalTitle : null, movie.year, formatRuntime(movie.runtimeMinutes)].filter(Boolean).join(" · ")}
+            </p>
+            {movie.genres.length > 0 && (
+              <ul className="flex flex-wrap gap-2" aria-label="Géneros">
+                {movie.genres.map((g) => (
+                  <li key={g} className="rounded-full bg-pine-soft px-3 py-1 text-[13px] font-semibold text-pine">
+                    {g}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex items-center gap-3.5 rounded-2xl bg-surface-2 px-4 py-3.5">
+              <ImdbLogo className="h-7" />
+              <div>
+                <div className="text-[26px] leading-none font-bold tracking-[-0.02em]">
+                  {formatScore(movie.ratings.imdb)}
+                  <span className="text-sm font-semibold text-ink-2">/10</span>
+                </div>
+                <div className="mt-1 text-xs text-ink-2">Público</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3.5 rounded-2xl bg-surface-2 px-4 py-3.5">
+              {movie.ratings.rottenTomatoes !== null && <RtLogo score={movie.ratings.rottenTomatoes} certified={movie.ratings.certifiedFresh} className="h-9" />}
+              <div>
+                <div className="text-[26px] leading-none font-bold tracking-[-0.02em]">{movie.ratings.rottenTomatoes !== null ? `${movie.ratings.rottenTomatoes}%` : "—"}</div>
+                <div className="mt-1 text-xs text-ink-2">{movie.ratings.certifiedFresh ? "Certified Fresh" : "Tomatómetro"}</div>
+              </div>
+            </div>
+          </div>
+
+          {movie.synopsis && (
+            <section aria-labelledby="door-syn" className="flex flex-col gap-2">
+              <h3 id="door-syn" className="text-sm font-bold tracking-[0.06em] text-ink-2 uppercase">
+                Sinopsis
+              </h3>
+              <p className="text-base leading-relaxed sm:text-[17px]">{movie.synopsis}</p>
+            </section>
+          )}
+
+          <section aria-labelledby="door-where" className="flex flex-col gap-3">
+            <h3 id="door-where" className="text-sm font-bold tracking-[0.06em] text-ink-2 uppercase">
+              Dónde verla en Colombia
+            </h3>
+            {groups.length ? (
+              <div className="flex flex-col gap-3">
+                {groups.map((g) => (
+                  <div key={g.type} className="flex flex-wrap items-center gap-2">
+                    <span className="w-full text-xs font-semibold text-ink-2 sm:w-[150px]">{OFFER_GROUP_LABEL[g.type]}</span>
+                    {g.items.map((o) => (
+                      <a
+                        key={o.provider + o.type}
+                        href={o.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="nv-press inline-flex h-11 items-center gap-2.5 rounded-xl border border-line bg-surface-2 pr-3.5 pl-1.5 text-sm font-semibold text-ink hover:border-ink-2"
+                      >
+                        <ProviderLogo src={o.logoUrl} name={o.name} className="size-8 rounded-lg" />
+                        {o.name}
+                        <ExternalLink className="size-3.5 text-ink-2" aria-hidden />
+                      </a>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-2xl bg-surface-2 px-4 py-3.5 text-sm text-ink-2">Por ahora no está en ninguna plataforma en Colombia.</p>
+            )}
+          </section>
         </div>
-        <div className="text-[15px] text-ink-2">
-          {[movie.year, formatRuntime(movie.runtimeMinutes), movie.genres.slice(0, 2).join(", ")].filter(Boolean).join(" · ")}
-        </div>
-        <RatingBadges ratings={movie.ratings} size="md" />
-        {movie.synopsis && <p className="nv-clamp-3 text-[15px] leading-relaxed text-ink-2">{movie.synopsis}</p>}
-        <div className="mt-auto flex flex-col gap-2.5 pt-2">
-          {main ? (
-            <a href={main.url} target="_blank" rel="noopener noreferrer" className="nv-press flex h-[50px] items-center gap-2.5 rounded-[14px] bg-ink pr-4 pl-2 text-base font-semibold text-bg">
-              <ProviderLogo src={main.logoUrl} name={main.name} className="size-[34px] rounded-[9px]" />
+
+        {/* Actions stay in view while the details scroll */}
+        <div className="sticky bottom-0 mt-auto flex flex-wrap items-center gap-2.5 border-t border-line bg-surface/95 p-4 backdrop-blur-md sm:px-10 sm:py-5">
+          {main && (
+            <a href={main.url} target="_blank" rel="noopener noreferrer" className="nv-press inline-flex h-[52px] flex-[1_1_220px] items-center gap-2.5 rounded-[14px] bg-ink pr-4 pl-2 text-base font-semibold text-bg">
+              <ProviderLogo src={main.logoUrl} name={main.name} className="size-9 rounded-[10px]" />
               <span className="flex-1 truncate">Ver en {main.name}</span>
               <ExternalLink className="size-4" aria-hidden />
             </a>
-          ) : (
-            <span className="flex h-[50px] items-center justify-center rounded-[14px] bg-surface-2 text-[15px] font-semibold text-ink-2">Sin plataforma</span>
           )}
-          <WatchedButton watched={watched} onToggle={onToggle} className="h-[50px] w-full text-base" />
-          <button type="button" onClick={onUnassign} className="h-10 text-sm font-semibold text-berry-ink">
-            Quitar de este día
+          <WatchedButton watched={watched} onToggle={onToggle} className="h-[52px] flex-[1_1_180px] text-base" />
+          {movie.trailerUrl && (
+            <a href={movie.trailerUrl} target="_blank" rel="noopener noreferrer" className="nv-press inline-flex h-[52px] items-center gap-2 rounded-[14px] border border-line px-4 text-sm font-semibold text-ink">
+              <Play className="size-4 fill-current" aria-hidden />
+              Tráiler
+            </a>
+          )}
+          <button type="button" onClick={onUnassign} className="h-[52px] rounded-[14px] px-3 text-sm font-semibold text-berry-ink">
+            Quitar del día
           </button>
         </div>
       </div>
-      <CloseButton onClick={onClose} className="absolute top-3 right-3" />
+      <CloseButton onClick={onClose} className="absolute top-4 right-4 z-10 bg-black/40 text-white backdrop-blur-md" />
     </div>
   );
 }
