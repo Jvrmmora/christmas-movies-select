@@ -38,6 +38,10 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      # PageProps/LayoutProps los genera Next; sin esto tsc no los encuentra en un checkout limpio.
+      - name: Generate route types
+        run: pnpm exec next typegen
+
       - name: Typecheck
         run: pnpm typecheck
 
