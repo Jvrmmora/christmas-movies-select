@@ -1,0 +1,228 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { LogOut, Pencil, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { logoutAction } from "@/actions/auth";
+import { createProfileAction, deleteProfileAction, selectProfileAction, updateProfileAction } from "@/actions/profiles";
+import { Avatar } from "@/components/avatars/avatar";
+import { AvatarEditor, type ProfileDraft } from "@/components/avatars/avatar-editor";
+import { CAST, randomAvatar } from "@/components/avatars/cast";
+import { usePrefs } from "@/components/providers";
+import { LIMITS } from "@/lib/limits";
+import { starterAvatar } from "@/lib/avatar";
+import type { HomeInfo, Profile } from "@/lib/types";
+
+type View = { kind: "pick" } | { kind: "create" } | { kind: "edit"; id: string };
+
+export function ProfilePicker({ home, profiles, next, editId }: { home: HomeInfo; profiles: Profile[]; next: string; editId?: string }) {
+  const router = useRouter();
+  const { play } = usePrefs();
+  const [pending, start] = useTransition();
+  const [manage, setManage] = useState(false);
+  // Opened from the header's "Editar mi perfil": return to where they were once saved.
+  const [returnAfterEdit] = useState(!!editId);
+  const [view, setView] = useState<View>(() => {
+    if (profiles.length === 0) return { kind: "create" };
+    if (editId && profiles.some((p) => p.id === editId)) return { kind: "edit", id: editId };
+    return { kind: "pick" };
+  });
+
+  const enter = () => {
+    play("jingle");
+    router.replace(next);
+  };
+
+  function choose(id: string) {
+    start(async () => {
+      const res = await selectProfileAction(id);
+      if (res.ok) enter();
+      else toast.error(res.error);
+    });
+  }
+
+  if (view.kind !== "pick") {
+    const editing = view.kind === "edit" ? profiles.find((p) => p.id === view.id) : undefined;
+    const first = profiles.length === 0;
+    return (
+      <Editor
+        key={view.kind === "edit" ? view.id : "new"}
+        title={first ? "Crea tu primer perfil" : editing ? "Editar perfil" : "Nuevo perfil"}
+        subtitle={first ? `Así sabremos quién agrega y sugiere cada película en ${home.name}.` : undefined}
+        initial={editing ? { name: editing.name, avatar: editing.avatar } : { name: "", avatar: first ? randomAvatar() : starterAvatar(profiles.length) }}
+        pending={pending}
+        onCancel={first ? undefined : () => setView({ kind: "pick" })}
+        canDelete={!!editing && profiles.length > 1}
+        onSave={(draft) =>
+          start(async () => {
+            const res = editing
+              ? await updateProfileAction(editing.id, draft)
+              : await createProfileAction(draft, first);
+            if (!res.ok) {
+              toast.error(res.error);
+              return;
+            }
+            if (first) enter();
+            else if (editing && returnAfterEdit) router.replace(next);
+            else setView({ kind: "pick" });
+          })
+        }
+        onDelete={() =>
+          start(async () => {
+            if (!editing) return;
+            const res = await deleteProfileAction(editing.id);
+            if (!res.ok) {
+              toast.error(res.error);
+              return;
+            }
+            toast.success(`Perfil de ${editing.name} eliminado`);
+            setView({ kind: "pick" });
+          })
+        }
+      />
+    );
+  }
+
+  return (
+    <div className="nv-fade flex w-full flex-col items-center text-center">
+      <p className="text-sm font-semibold tracking-wide text-gold-ink uppercase">{home.name}</p>
+      <h1 className="mt-2 font-serif text-[34px] leading-[1.1] font-semibold tracking-[-0.025em] sm:text-[44px]">
+        {manage ? "Administrar perfiles" : "¿Quién está viendo la peli?"}
+      </h1>
+
+      <ul className="mt-10 flex flex-wrap justify-center gap-x-4 gap-y-8">
+        {profiles.map((p) => {
+          const cast = CAST[p.avatar.character];
+          return (
+            <li key={p.id}>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => (manage ? setView({ kind: "edit", id: p.id }) : choose(p.id))}
+                aria-label={manage ? `Editar el perfil de ${p.name}` : `Entrar como ${p.name}, ${cast.name}`}
+                className="nv-av-host group flex w-[136px] flex-col items-center gap-2.5 rounded-2xl p-2 transition-transform duration-200 hover:-translate-y-1 focus-visible:-translate-y-1 active:scale-95 disabled:opacity-70"
+              >
+                <span className="relative">
+                  <Avatar avatar={p.avatar} size={116} className="shadow-card ring-4 ring-transparent transition-shadow group-hover:ring-gold group-focus-visible:ring-gold" />
+                  {manage && (
+                    <span className="absolute inset-0 grid place-items-center rounded-full bg-black/55 text-white">
+                      <Pencil className="size-7" strokeWidth={1.8} aria-hidden />
+                    </span>
+                  )}
+                </span>
+                <span className="max-w-full truncate text-lg font-semibold">{p.name}</span>
+                <span className="min-h-10 text-[13px] leading-snug text-ink-2">
+                  <span className="group-hover:hidden group-focus-visible:hidden">{cast.trait}</span>
+                  <span className="hidden group-hover:inline group-focus-visible:inline">«{cast.phrase}»</span>
+                </span>
+              </button>
+            </li>
+          );
+        })}
+        {profiles.length < LIMITS.profilesPerHome && (
+          <li>
+            <button
+              type="button"
+              onClick={() => setView({ kind: "create" })}
+              aria-label="Añadir perfil"
+              className="group flex w-[136px] flex-col items-center gap-2.5 rounded-2xl p-2 transition-transform duration-200 hover:-translate-y-1 focus-visible:-translate-y-1 active:scale-95"
+            >
+              <span className="grid size-[116px] place-items-center rounded-full border-2 border-dashed border-ink-2 text-ink-2 transition-colors group-hover:border-gold group-hover:text-gold">
+                <Plus className="size-9" strokeWidth={1.6} aria-hidden />
+              </span>
+              <span className="text-lg font-semibold">Añadir perfil</span>
+              <span className="min-h-10 text-[13px] text-ink-2">
+                {profiles.length} de {LIMITS.profilesPerHome}
+              </span>
+            </button>
+          </li>
+        )}
+      </ul>
+
+      <div className="mt-12 flex flex-wrap justify-center gap-3">
+        <button
+          type="button"
+          onClick={() => setManage((m) => !m)}
+          aria-pressed={manage}
+          className={`nv-press h-11 rounded-full border px-5 text-[15px] font-semibold ${manage ? "border-gold bg-gold-soft" : "border-line bg-surface"}`}
+        >
+          {manage ? "Listo" : "Administrar perfiles"}
+        </button>
+        <form action={logoutAction}>
+          <button type="submit" className="nv-press flex h-11 items-center gap-2 rounded-full border border-line bg-surface px-5 text-[15px] font-semibold text-ink-2">
+            <LogOut className="size-4" strokeWidth={1.9} aria-hidden />
+            Salir de la casa
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function Editor({
+  title,
+  subtitle,
+  initial,
+  pending,
+  canDelete,
+  onSave,
+  onCancel,
+  onDelete,
+}: {
+  title: string;
+  subtitle?: string;
+  initial: ProfileDraft;
+  pending: boolean;
+  canDelete: boolean;
+  onSave: (draft: ProfileDraft) => void;
+  onCancel?: () => void;
+  onDelete: () => void;
+}) {
+  const [draft, setDraft] = useState(initial);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const valid = draft.name.trim().length > 0;
+
+  return (
+    <form
+      className="nv-fade w-full max-w-[760px] rounded-[28px] bg-surface p-6 text-left shadow-card sm:p-10"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (valid) onSave({ ...draft, name: draft.name.trim() });
+      }}
+    >
+      <h1 className="font-serif text-[30px] leading-tight font-semibold tracking-[-0.02em]">{title}</h1>
+      {subtitle && <p className="mt-1 text-ink-2">{subtitle}</p>}
+      <div className="mt-8">
+        <AvatarEditor draft={draft} onChange={setDraft} />
+      </div>
+      <div className="mt-10 flex flex-wrap items-center gap-3">
+        <button type="submit" disabled={pending || !valid} className="nv-press h-12 rounded-full bg-berry px-7 text-base font-semibold text-white disabled:opacity-60">
+          {pending ? "Guardando…" : "Guardar"}
+        </button>
+        {onCancel && (
+          <button type="button" onClick={onCancel} disabled={pending} className="nv-press h-12 rounded-full border border-line px-6 text-base font-semibold">
+            Cancelar
+          </button>
+        )}
+        {canDelete &&
+          (confirmDelete ? (
+            <span className="ml-auto flex items-center gap-2 text-sm">
+              ¿Eliminar este perfil?
+              <button type="button" onClick={onDelete} disabled={pending} className="nv-press h-10 rounded-full bg-berry px-4 font-semibold text-white">
+                Sí, eliminar
+              </button>
+              <button type="button" onClick={() => setConfirmDelete(false)} className="nv-press h-10 rounded-full border border-line px-4 font-semibold">
+                No
+              </button>
+            </span>
+          ) : (
+            <button type="button" onClick={() => setConfirmDelete(true)} className="nv-press ml-auto flex h-12 items-center gap-2 rounded-full px-4 text-[15px] font-semibold text-berry-ink">
+              <Trash2 className="size-4" strokeWidth={1.9} aria-hidden />
+              Eliminar perfil
+            </button>
+          ))}
+      </div>
+    </form>
+  );
+}

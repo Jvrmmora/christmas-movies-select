@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { DATE_KEY } from "./calendar";
+import { ACCESSORIES, BACKGROUND_IDS, CHARACTERS } from "./avatar";
 
 const isHttpUrl = (v: string) => {
   try {
@@ -54,6 +55,8 @@ export const movieInputSchema = z.object({
   notes: z.string().trim().max(2000).default(""),
   source: z.enum(["auto", "manual"]).default("manual"),
   calendarDate: z.string().regex(DATE_KEY).nullable().optional(),
+  /** Profile id. Checked against the home's profiles by the action; undefined = the person saving. */
+  suggestedBy: z.string().max(64).nullable().optional(),
 });
 
 export type MovieInput = z.input<typeof movieInputSchema>;
@@ -67,6 +70,39 @@ export const calendarPatchSchema = z.object({
 });
 
 export type CalendarPatch = z.input<typeof calendarPatchSchema>;
+
+export const avatarSchema = z.object({
+  character: z.enum(CHARACTERS),
+  bg: z.enum(BACKGROUND_IDS),
+  accessory: z.enum(ACCESSORIES),
+});
+
+export const profileInputSchema = z.object({
+  name: z.string().trim().min(1, "Ponle un nombre al perfil").max(16, "Máximo 16 letras"),
+  avatar: avatarSchema,
+});
+
+export type ProfileInput = z.input<typeof profileInputSchema>;
+
+// 3–24 characters; letters, digits and inner dashes only, so it reads well in a login form.
+export const homeSlugSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(/^[a-z0-9][a-z0-9-]{1,22}[a-z0-9]$/, "El código de la casa usa de 3 a 24 letras, números o guiones");
+
+export const homePasswordSchema = z
+  .string()
+  .min(6, "La clave necesita al menos 6 caracteres")
+  .max(100, "La clave es demasiado larga");
+
+export const homeInputSchema = z.object({
+  name: z.string().trim().min(1, "Ponle un nombre a la casa").max(40, "Máximo 40 letras"),
+  slug: homeSlugSchema,
+  password: homePasswordSchema,
+});
+
+export type HomeInput = z.input<typeof homeInputSchema>;
 
 export function firstIssue(error: z.ZodError): string {
   return error.issues[0]?.message ?? "Revisa los datos";

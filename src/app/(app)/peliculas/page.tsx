@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { MoviesBrowser } from "@/components/movies/movies-browser";
 import { PosterGridSkeleton } from "@/components/skeletons";
-import { getCalendar, getMovies } from "@/lib/dal";
+import { ProfilesProvider } from "@/components/profiles/profiles-provider";
+import { getCalendar, getMovies, getProfileContext } from "@/lib/dal";
 
 export const metadata: Metadata = { title: "Películas" };
 
@@ -17,6 +18,10 @@ export default function MoviesPage() {
 }
 
 async function Movies() {
-  const [movies, calendar] = await Promise.all([getMovies(), getCalendar()]);
-  return <MoviesBrowser movies={movies} calendar={calendar} />;
+  const [movies, calendar, ctx] = await Promise.all([getMovies(), getCalendar(), getProfileContext()]);
+  return (
+    <ProfilesProvider {...ctx}>
+      <MoviesBrowser movies={movies} calendar={calendar} />
+    </ProfilesProvider>
+  );
 }

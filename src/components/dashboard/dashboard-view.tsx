@@ -2,9 +2,11 @@
 /* eslint-disable @next/next/no-img-element -- backdrops come from JustWatch's CDN, already sized */
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
-import { CalendarDays, Gift, ListPlus, Moon, Pencil, Sun, Sunset } from "lucide-react";
-import { toast } from "sonner";
+import { useState } from "react";
+import { CalendarDays, Gift, ListPlus, Moon, Sun, Sunset } from "lucide-react";
+import { Avatar } from "@/components/avatars/avatar";
+import { CAST } from "@/components/avatars/cast";
+import { useProfiles } from "@/components/profiles/profiles-provider";
 import { useNow } from "@/components/use-now";
 import { usePrefs } from "@/components/providers";
 import { ChristmasCountdown } from "./christmas-countdown";
@@ -12,7 +14,6 @@ import { MovieCard } from "@/components/movies/movie-card";
 import { useWatched, WatchedButton } from "@/components/movies/watched";
 import { Poster, ProviderLogo } from "@/components/ui/poster";
 import { RatingBadges } from "@/components/ui/rating-badges";
-import { saveDisplayNameAction } from "@/actions/settings";
 import { countdownTo, GREETING, periodFor } from "@/lib/greeting";
 import { capitalize, formatRuntime } from "@/lib/format";
 import { parseKey, toKey } from "@/lib/calendar";
@@ -22,7 +23,7 @@ import type { CalendarState, Movie } from "@/lib/types";
 const dayFmt = new Intl.DateTimeFormat("es-CO", { weekday: "long", day: "numeric", month: "long" });
 const monthShort = new Intl.DateTimeFormat("es-CO", { month: "short" });
 
-export function DashboardView({ movies, calendar, displayName }: { movies: Movie[]; calendar: CalendarState; displayName: string }) {
+export function DashboardView({ movies, calendar }: { movies: Movie[]; calendar: CalendarState }) {
   const now = useNow();
   const { isWatched, toggle } = useWatched(movies);
   const byId = new Map(movies.map((m) => [m.id, m]));
@@ -47,12 +48,12 @@ export function DashboardView({ movies, calendar, displayName }: { movies: Movie
   );
   const shortlist = shortlistIds.map((id) => byId.get(id)).filter((m): m is Movie => !!m);
 
-  if (!movies.length) return <EmptyWelcome displayName={displayName} />;
+  if (!movies.length) return <EmptyWelcome />;
 
   return (
     <div className="flex flex-col gap-12">
       <section className="flex flex-wrap items-stretch gap-6">
-        <GreetingCard now={now} displayName={displayName} pendingCount={pending.length} hasToday={!!todayMovie} />
+        <GreetingCard now={now} pendingCount={pending.length} hasToday={!!todayMovie} />
         <ProgressCard watched={watchedCount} total={movies.length} pending={pending.length} hours={pendingHours} season={calendar.season} />
       </section>
 
@@ -123,69 +124,40 @@ function PeriodIcon({ hour }: { hour: number }) {
   return <Icon className="size-[18px]" strokeWidth={1.8} aria-hidden />;
 }
 
-function GreetingCard({ now, displayName, pendingCount, hasToday }: { now: Date | null; displayName: string; pendingCount: number; hasToday: boolean }) {
-  const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(displayName);
-  const [saving, startSaving] = useTransition();
+function GreetingCard({ now, pendingCount, hasToday }: { now: Date | null; pendingCount: number; hasToday: boolean }) {
+  const { current } = useProfiles();
+  const cast = CAST[current.avatar.character];
   const cd = now ? countdownTo(now) : null;
-  const greeting = now ? GREETING[periodFor(now.getHours())] : " ";
-
-  const save = () => {
-    startSaving(async () => {
-      const res = await saveDisplayNameAction(name);
-      if (res.ok) setEditing(false);
-      else toast.error(res.error);
-    });
-  };
+  const greeting = now ? GREETING[periodFor(now.getHours())] : " ";
 
   return (
     <div className="nv-fade relative min-w-0 flex-[999_1_560px] overflow-hidden rounded-[28px] bg-surface p-7 shadow-card sm:p-10">
       <svg width="260" height="260" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="0.6" strokeLinecap="round" aria-hidden className="absolute -top-12 -right-12 text-gold-soft">
         <path d="M12 2v20M3.34 7l17.32 10M3.34 17 20.66 7M12 2l-2 2.5M12 2l2 2.5M12 22l-2-2.5M12 22l2-2.5M3.34 7l3.1.3M3.34 7l1.3 2.9M20.66 17l-3.1-.3M20.66 17l-1.3-2.9M3.34 17l3.1-.3M3.34 17l1.3-2.9M20.66 7l-3.1.3M20.66 7l-1.3 2.9" />
       </svg>
-      <div className="relative flex min-h-5 items-center gap-2 text-[13px] font-semibold tracking-[0.06em] text-gold-ink uppercase">
-        {now && <PeriodIcon hour={now.getHours()} />}
-        <span>{now ? capitalize(dayFmt.format(now)) : ""}</span>
+      <div className="relative flex items-center gap-4">
+        <Link href="/perfiles" aria-label={`Eres ${current.name}. Cambiar de perfil`} title="Cambiar de perfil" className="nv-av-host nv-press shrink-0 rounded-full ring-2 ring-line transition-shadow hover:ring-gold">
+          <Avatar avatar={current.avatar} size={64} animated />
+        </Link>
+        <div className="min-w-0">
+          <div className="flex min-h-5 items-center gap-2 text-[13px] font-semibold tracking-[0.06em] text-gold-ink uppercase">
+            {now && <PeriodIcon hour={now.getHours()} />}
+            <span>{now ? capitalize(dayFmt.format(now)) : ""}</span>
+          </div>
+          <p className="mt-1 text-[15px] text-ink-2 italic">
+            {cast.name}: «{cast.phrase}»
+          </p>
+        </div>
       </div>
-      <h1 className="relative mt-4 font-serif text-[clamp(40px,5.6vw,72px)] leading-[1.02] font-semibold tracking-[-0.025em]">
+      <h1 className="relative mt-5 font-serif text-[clamp(40px,5.6vw,72px)] leading-[1.02] font-semibold tracking-[-0.025em]">
         {greeting}
-        {displayName && now ? <span className="text-berry-ink">, {displayName}</span> : null}
+        {now ? <span className="text-berry-ink">, {current.name}</span> : null}
       </h1>
-      {editing ? (
-        <form
-          className="relative mt-4 flex max-w-md gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            save();
-          }}
-        >
-          <label className="sr-only" htmlFor="nv-name">
-            Nombres para el saludo
-          </label>
-          <input
-            id="nv-name"
-            autoFocus
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Ej. Ana y Javier"
-            maxLength={60}
-            className="h-11 min-w-0 flex-1 rounded-xl border border-line bg-field px-3.5 text-base text-ink"
-          />
-          <button type="submit" disabled={saving} className="nv-press h-11 rounded-xl bg-ink px-4 text-sm font-semibold text-bg">
-            Guardar
-          </button>
-        </form>
-      ) : (
-        <p className="relative mt-4 max-w-[520px] text-lg leading-normal text-ink-2 sm:text-[19px]">
-          {pendingCount === 0
-            ? "Ya vieron todas las películas de la lista. ¡Qué temporada!"
-            : `Tienen ${pendingCount} ${pendingCount === 1 ? "película pendiente" : "películas pendientes"}${hasToday ? " y la de hoy ya está lista en el calendario." : "."}`}{" "}
-          <button type="button" onClick={() => setEditing(true)} className="inline-flex items-center gap-1 align-middle text-sm font-semibold text-ink-2 underline-offset-2 hover:text-ink hover:underline">
-            <Pencil className="size-3.5" aria-hidden />
-            {displayName ? "Cambiar nombres" : "Poner sus nombres"}
-          </button>
-        </p>
-      )}
+      <p className="relative mt-4 max-w-[520px] text-lg leading-normal text-ink-2 sm:text-[19px]">
+        {pendingCount === 0
+          ? "Ya vieron todas las películas de la lista. ¡Qué temporada!"
+          : `Tienen ${pendingCount} ${pendingCount === 1 ? "película pendiente" : "películas pendientes"}${hasToday ? " y la de hoy ya está lista en el calendario." : "."}`}
+      </p>
       <div className="relative mt-8">
         <ChristmasCountdown parts={cd} />
       </div>
@@ -306,14 +278,15 @@ function CalendarNudge({ hasAssignments }: { hasAssignments: boolean }) {
   );
 }
 
-function EmptyWelcome({ displayName }: { displayName: string }) {
+function EmptyWelcome() {
   const now = useNow();
   const { play } = usePrefs();
+  const { current } = useProfiles();
   return (
     <section className="nv-fade mx-auto flex max-w-2xl flex-col items-center gap-5 rounded-[28px] bg-surface px-6 py-16 text-center shadow-card">
       <h1 className="font-serif text-5xl font-semibold tracking-[-0.025em]">
         {now ? GREETING[periodFor(now.getHours())] : "Hola"}
-        {displayName ? `, ${displayName}` : ""}
+        {now ? `, ${current.name}` : ""}
       </h1>
       <p className="max-w-md text-lg text-ink-2">Su lista de películas navideñas está vacía. Empiecen pegando su lista o agregando la primera.</p>
       <div className="flex flex-wrap justify-center gap-2.5">

@@ -224,7 +224,32 @@ dialog.nv-dialog[open] .nv-pop-in { animation: nv-pop-in 0.35s cubic-bezier(0.2,
 .nv-no-scrollbar { scrollbar-width: none; }
 .nv-no-scrollbar::-webkit-scrollbar { display: none; }
 
+/* ---------- Avatars: idle animations, paused until hover/focus of an .nv-av-host or an animated avatar ---------- */
+.nv-av [class*="nv-av-"] { transform-box: fill-box; transform-origin: center; animation-play-state: paused; }
+.nv-av-on [class*="nv-av-"],
+.nv-av-host:hover .nv-av [class*="nv-av-"],
+.nv-av-host:focus-visible .nv-av [class*="nv-av-"] { animation-play-state: running; }
+.nv-av-sway { transform-origin: 50% 0 !important; animation: nv-av-sway 3.2s ease-in-out infinite; }
+.nv-av-glow { animation: nv-av-glow 1.8s ease-in-out infinite; }
+.nv-av-wave { transform-origin: 20% 0 !important; animation: nv-av-wave 2.4s ease-in-out infinite; }
+.nv-av-ring { transform-origin: 50% 0 !important; animation: nv-av-ring 1.6s ease-in-out infinite; }
+.nv-av-twinkle { animation: nv-av-twinkle 1.8s ease-in-out infinite; }
+.nv-av-blink { animation: nv-av-blink 4.5s infinite; }
+.nv-av-float { animation: nv-av-float 2.6s ease-in-out infinite; }
+.nv-av-flap { transform-origin: 50% 80% !important; animation: nv-av-flap 2s ease-in-out infinite; }
+.nv-av-breathe { transform-origin: 50% 100% !important; animation: nv-av-breathe 3.4s ease-in-out infinite; }
+@keyframes nv-av-sway { 0%, 100% { transform: rotate(-1.6deg); } 50% { transform: rotate(1.6deg); } }
+@keyframes nv-av-glow { 0%, 100% { opacity: 0.15; transform: scale(0.9); } 50% { opacity: 0.6; transform: scale(1.25); } }
+@keyframes nv-av-wave { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(7deg); } }
+@keyframes nv-av-ring { 0%, 100% { transform: rotate(-14deg); } 50% { transform: rotate(14deg); } }
+@keyframes nv-av-twinkle { 0%, 100% { opacity: 0.35; transform: scale(0.85); } 50% { opacity: 1; transform: scale(1.1); } }
+@keyframes nv-av-blink { 0%, 92%, 100% { transform: scaleY(1); } 96% { transform: scaleY(0.1); } }
+@keyframes nv-av-float { 0%, 100% { transform: translateY(-1.5px); } 50% { transform: translateY(1.5px); } }
+@keyframes nv-av-flap { 0%, 100% { transform: scale(0.97); } 50% { transform: scale(1.04); } }
+@keyframes nv-av-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.025); } }
+
 @media (prefers-reduced-motion: reduce) {
+  .nv-av [class*="nv-av-"] { animation: none !important; }
   .nv-flake { display: none; }
   .nv-bulb, .nv-on, .nv-fade, .nv-glow, .nv-heart, .nv-shimmer { animation: none !important; }
   .nv-draw { animation: none !important; stroke-dashoffset: 0; }
