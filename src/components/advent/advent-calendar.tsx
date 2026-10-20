@@ -152,10 +152,12 @@ export function AdventCalendar({ movies, calendar }: { movies: Movie[]; calendar
       const j = Math.floor(Math.random() * (i + 1));
       [ids[i], ids[j]] = [ids[j], ids[i]];
     }
-    const next = { ...cal.assignments };
+    const previous = cal.assignments;
+    const next = { ...previous };
     keys.forEach((k, i) => (next[k] = ids[i]));
     persist({ assignments: next });
     play("jingle");
+    toast("Películas mezcladas", { action: { label: "Deshacer", onClick: () => persist({ assignments: previous }) } });
   };
 
   const clearUpcoming = () => {
