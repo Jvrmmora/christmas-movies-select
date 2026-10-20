@@ -1,8 +1,10 @@
 /**
  * The household's initial list. Idempotent: existing title+year pairs are skipped.
- * Run: pnpm seed   (needs .env.local). Also used by scripts/demo.mts.
+ * Run: pnpm seed [--slug casa-montano]   (needs .env.local; without --slug it fills the original home).
+ * Also used by scripts/demo.mts.
  */
-import { collections, DEFAULT_OWNER, type MovieDoc } from "../src/lib/db";
+import { parseArgs } from "node:util";
+import { collections, LEGACY_HOME_ID, type MovieDoc } from "../src/lib/db";
 import { enrich, lookupMovie } from "../src/lib/metadata";
 import { normalize } from "../src/lib/metadata/justwatch";
 import type { MovieData } from "../src/lib/types";
@@ -71,9 +73,8 @@ const MANUAL: (MovieData & { notes: string })[] = [
   },
 ];
 
-export async function seedList() {
+export async function seedList(ownerId: string = LEGACY_HOME_ID) {
   const { movies } = await collections();
-  const ownerId = DEFAULT_OWNER;
   let created = 0;
 
   const insert = async (data: MovieData, notes: string, source: "auto" | "manual") => {
@@ -125,8 +126,18 @@ export async function seedList() {
   console.log(`\n${created} películas nuevas · total en la base: ${await movies.countDocuments({ ownerId })}`);
 }
 
+async function homeFromArgs(): Promise<string> {
+  const { values } = parseArgs({ options: { slug: { type: "string" } } });
+  if (!values.slug) return LEGACY_HOME_ID;
+  const { homes } = await collections();
+  const home = await homes.findOne({ slug: values.slug.toLowerCase() });
+  if (!home) throw new Error(`No hay una casa con el código "${values.slug}".`);
+  return home._id;
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
-  seedList()
+  homeFromArgs()
+    .then(seedList)
     .then(() => process.exit(0))
     .catch((err) => {
       console.error(err);

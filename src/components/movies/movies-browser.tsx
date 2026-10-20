@@ -6,6 +6,8 @@ import { Clapperboard, GalleryHorizontal, ListPlus, Search, TreePine } from "luc
 import { MovieCard } from "./movie-card";
 import { MovieGallery } from "./movie-gallery";
 import { useWatched } from "./watched";
+import { ProfileChips } from "@/components/profiles/profile-chips";
+import { useProfiles } from "@/components/profiles/profiles-provider";
 import { ProviderLogo } from "@/components/ui/poster";
 import { filterKey, subscriptionOffers } from "@/lib/platforms";
 import { parseKey } from "@/lib/calendar";
@@ -22,6 +24,8 @@ export function MoviesBrowser({ movies, calendar }: { movies: Movie[]; calendar:
   const [status, setStatus] = useState<Status>("all");
   const [platform, setPlatform] = useState<string>("all");
   const [genre, setGenre] = useState<string>("all");
+  const [by, setBy] = useState("");
+  const { profiles } = useProfiles();
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<Sort>("cal");
   const [galleryAt, setGalleryAt] = useState<number | null>(null);
@@ -64,6 +68,7 @@ export function MoviesBrowser({ movies, calendar }: { movies: Movie[]; calendar:
       if (platform === NONE && subs.length) return false;
       if (platform !== "all" && platform !== NONE && !subs.some((o) => filterKey(o).key === platform)) return false;
       if (genre !== "all" && !m.genres.includes(genre)) return false;
+      if (by && (m.suggestedBy ?? m.addedBy) !== by) return false;
       if (query) {
         const hay = `${m.title} ${m.originalTitle}`.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
         if (!hay.includes(query)) return false;
@@ -94,6 +99,7 @@ export function MoviesBrowser({ movies, calendar }: { movies: Movie[]; calendar:
     setStatus("all");
     setPlatform("all");
     setGenre("all");
+    setBy("");
     setQ("");
   };
 
@@ -195,6 +201,12 @@ export function MoviesBrowser({ movies, calendar }: { movies: Movie[]; calendar:
             }
           />
         </div>
+        {profiles.length > 1 && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <span className="text-sm text-ink-2">Sugerida por</span>
+            <ProfileChips value={by} onChange={setBy} label="Sugerida por" allLabel="Todos" />
+          </div>
+        )}
       </div>
 
       {list.length ? (

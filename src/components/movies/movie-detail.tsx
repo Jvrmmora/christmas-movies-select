@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Poster, ProviderLogo } from "@/components/ui/poster";
 import { ImdbLogo, RtLogo } from "@/components/ui/rating-badges";
 import { CloseButton, Dialog } from "@/components/ui/dialog";
+import { Credits } from "@/components/profiles/attribution";
 import { WatchedButton } from "./watched";
 import { usePrefs } from "@/components/providers";
 import {
@@ -136,6 +137,7 @@ export function MovieDetail({ movie, calendarDate }: { movie: Movie; calendarDat
                 .filter(Boolean)
                 .join(" · ")}
             </p>
+            <Credits movie={movie} className="mt-3" />
           </div>
 
           <div className="flex flex-wrap gap-3">

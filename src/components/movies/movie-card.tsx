@@ -4,6 +4,7 @@ import Link from "next/link";
 import { CalendarDays, Heart, Maximize2 } from "lucide-react";
 import { Poster, ProviderLogo } from "@/components/ui/poster";
 import { RatingBadges } from "@/components/ui/rating-badges";
+import { SuggestedBadge } from "@/components/profiles/attribution";
 import { WatchedToggle } from "./watched";
 import { subscriptionOffers } from "@/lib/platforms";
 import type { Movie } from "@/lib/types";
@@ -82,9 +83,12 @@ export function MovieCard({
         <Link href={`/peliculas/${movie.id}`} className="block truncate text-[15px] font-semibold text-ink hover:underline">
           {movie.title}
         </Link>
-        <div className="mt-0.5 truncate text-[13px] text-ink-2">
-          {movie.year}
-          {movie.genres.length ? ` · ${movie.genres.slice(0, 2).join(" · ")}` : ""}
+        <div className="mt-0.5 flex items-center gap-2 text-[13px] text-ink-2">
+          <span className="min-w-0 flex-1 truncate">
+            {movie.year}
+            {movie.genres.length ? ` · ${movie.genres.slice(0, 2).join(" · ")}` : ""}
+          </span>
+          <SuggestedBadge movie={movie} size={22} />
         </div>
       </div>
       <div className="flex items-center gap-2">

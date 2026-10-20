@@ -2,16 +2,57 @@ import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { ObjectId } from "mongodb";
-import { readSession } from "./session";
-import { collections, type CalendarDoc, type MovieDoc } from "./db";
+import { readAdminSession, readProfileSession, readSession } from "./session";
+import { formatInviteCode } from "./invite";
+import { homeCap } from "./limits";
+import { collections, type CalendarDoc, type MovieDoc, type ProfileDoc } from "./db";
 import { presetStart, seasonEnd, seasonFor } from "./calendar";
-import type { CalendarState, Movie, Settings } from "./types";
+import type { AdminOverview, CalendarState, HomeInfo, Movie, Profile } from "./types";
 
-/** Data Access Layer: every read checks the session first. */
+/**
+ * Data Access Layer: every read checks the session first.
+ * ownerId is the home id: every movie, calendar and setting is stored under it.
+ */
 export const verifySession = cache(async () => {
   const session = await readSession();
   if (!session) redirect("/login");
-  return session;
+  return { ownerId: session.homeId, homeId: session.homeId };
+});
+
+export function toProfile(doc: ProfileDoc): Profile {
+  return { id: doc._id, name: doc.name, avatar: doc.avatar };
+}
+
+export const getHome = cache(async (): Promise<HomeInfo> => {
+  const { homeId } = await verifySession();
+  const { homes } = await collections();
+  const home = await homes.findOne({ _id: homeId }, { projection: { slug: 1, name: 1 } });
+  // A cookie for a home that was deleted: /salir clears it, otherwise /login would bounce straight back.
+  if (!home) redirect("/salir");
+  return { id: home._id, slug: home.slug, name: home.name };
+});
+
+export const getProfiles = cache(async (): Promise<Profile[]> => {
+  const { homeId } = await verifySession();
+  const { profiles } = await collections();
+  return (await profiles.find({ homeId }).sort({ createdAt: 1 }).toArray()).map(toProfile);
+});
+
+/** Who is watching on this device, or the profile picker when nobody has been chosen (or they were removed). */
+export const getCurrentProfile = cache(async (): Promise<Profile> => {
+  const { homeId } = await verifySession();
+  const picked = await readProfileSession();
+  if (!picked || picked.homeId !== homeId) redirect("/perfiles");
+  // Looked up in the (request-cached) list of the home's profiles: no extra query.
+  const current = (await getProfiles()).find((p) => p.id === picked.profileId);
+  if (!current) redirect("/perfiles");
+  return current;
+});
+
+/** What ProfilesProvider needs; every page loader awaits this next to its own data. */
+export const getProfileContext = cache(async () => {
+  const [profiles, current] = await Promise.all([getProfiles(), getCurrentProfile()]);
+  return { profiles, current };
 });
 
 export function toMovie(doc: MovieDoc): Movie {
@@ -41,6 +82,9 @@ export function toMovie(doc: MovieDoc): Movie {
     favorite: !!doc.favorite,
     source: doc.source ?? "manual",
     lastSyncedAt: doc.lastSyncedAt ? doc.lastSyncedAt.toISOString() : null,
+    addedBy: doc.addedBy ?? null,
+    suggestedBy: doc.suggestedBy ?? null,
+    updatedBy: doc.updatedBy ?? null,
     createdAt: doc.createdAt.toISOString(),
     updatedAt: doc.updatedAt.toISOString(),
   };
@@ -91,9 +135,38 @@ export const getCalendar = cache(async (): Promise<CalendarState> => {
   return toCalendar(await calendars.findOne({ ownerId, season }), season);
 });
 
-export const getSettings = cache(async (): Promise<Settings> => {
-  const { ownerId } = await verifySession();
-  const { settings } = await collections();
-  const doc = await settings.findOne({ ownerId });
-  return { displayName: doc?.displayName ?? "" };
+/** Everything the admin panel shows; null when this browser has no admin session. */
+export const getAdminOverview = cache(async (): Promise<AdminOverview | null> => {
+  if (!(await readAdminSession())) return null;
+  const { homes, profiles, movies, invites } = await collections();
+  const [homeDocs, profileCounts, movieCounts, inviteDocs] = await Promise.all([
+    homes.find({}, { projection: { passwordHash: 0, recoveryHash: 0 } }).sort({ createdAt: 1 }).toArray(),
+    profiles.aggregate<{ _id: string; n: number }>([{ $group: { _id: "$homeId", n: { $sum: 1 } } }]).toArray(),
+    movies.aggregate<{ _id: string; n: number }>([{ $group: { _id: "$ownerId", n: { $sum: 1 } } }]).toArray(),
+    invites.find({}).sort({ createdAt: -1 }).limit(50).toArray(),
+  ]);
+  const count = (rows: { _id: string; n: number }[]) => new Map(rows.map((r) => [r._id, r.n]));
+  const profilesBy = count(profileCounts);
+  const moviesBy = count(movieCounts);
+  const slugById = new Map(homeDocs.map((h) => [h._id, h.slug]));
+  const now = Date.now();
+  return {
+    cap: homeCap(),
+    homes: homeDocs.map((h) => ({
+      id: h._id,
+      slug: h.slug,
+      name: h.name,
+      profiles: profilesBy.get(h._id) ?? 0,
+      movies: moviesBy.get(h._id) ?? 0,
+      createdAt: h.createdAt.toISOString(),
+      lastActiveAt: h.lastActiveAt.toISOString(),
+    })),
+    invites: inviteDocs.map((i) => ({
+      code: formatInviteCode(i._id),
+      createdAt: i.createdAt.toISOString(),
+      expiresAt: i.expiresAt.toISOString(),
+      status: i.usedAt ? "used" : i.expiresAt.getTime() <= now ? "expired" : "open",
+      usedBySlug: i.usedByHomeId ? (slugById.get(i.usedByHomeId) ?? null) : null,
+    })),
+  };
 });

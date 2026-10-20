@@ -6,6 +6,8 @@ import { useMemo, useState, useTransition } from "react";
 import { Check, ChevronDown, ChevronLeft, Clapperboard, Lock, Plus, Search, Trash2, WandSparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { createMovieAction, searchMoviesAction, updateMovieAction } from "@/actions/movies";
+import { ProfileChips } from "@/components/profiles/profile-chips";
+import { useProfiles } from "@/components/profiles/profiles-provider";
 import { usePrefs } from "@/components/providers";
 import { useNow } from "@/components/use-now";
 import { Poster, ProviderLogo } from "@/components/ui/poster";
@@ -40,12 +42,14 @@ interface FormState {
   myRating: number | null;
   notes: string;
   calendarDate: string;
+  /** Profile id; "" when nobody is credited. */
+  suggestedBy: string;
 }
 
 const EMPTY: FormState = {
   title: "", originalTitle: "", year: "", runtime: "", posterUrl: "", backdropUrl: "", synopsis: "", genres: [],
   imdb: "", imdbVotes: null, rt: "", certifiedFresh: false, streaming: [], noPlatform: false, trailerUrl: "",
-  externalIds: {}, source: "manual", favorite: false, watched: false, myRating: null, notes: "", calendarDate: "",
+  externalIds: {}, source: "manual", favorite: false, watched: false, myRating: null, notes: "", calendarDate: "", suggestedBy: "",
 };
 
 const GENRE_OPTIONS = ["Navideña", "Comedia", "Romance", "Familia", "Animación", "Fantasía", "Acción", "Aventura", "Drama", "Musical", "Suspenso", "Crimen"];
@@ -71,7 +75,7 @@ function dataFields(d: MovieData): Partial<FormState> {
   };
 }
 
-function fromMovie(m: Movie, calendarDate: string | null): FormState {
+function fromMovie(m: Movie, calendarDate: string | null, knownProfile: (id: string) => boolean): FormState {
   return {
     ...EMPTY,
     ...dataFields(m),
@@ -81,6 +85,8 @@ function fromMovie(m: Movie, calendarDate: string | null): FormState {
     myRating: m.myRating,
     notes: m.notes,
     calendarDate: calendarDate ?? "",
+    // A person who left the home can no longer be credited; the server would reject their id.
+    suggestedBy: m.suggestedBy && knownProfile(m.suggestedBy) ? m.suggestedBy : "",
   };
 }
 
@@ -112,6 +118,7 @@ function toInput(f: FormState): MovieInput | string {
     notes: f.notes,
     source: f.source,
     calendarDate: f.calendarDate || null,
+    suggestedBy: f.suggestedBy || null,
   };
 }
 
@@ -124,7 +131,8 @@ export function MovieForm({ movie, calendar, calendarDate = null }: { movie?: Mo
   const router = useRouter();
   const { play } = usePrefs();
   const now = useNow();
-  const [f, setF] = useState<FormState>(() => (movie ? fromMovie(movie, calendarDate) : EMPTY));
+  const { current, byId } = useProfiles();
+  const [f, setF] = useState<FormState>(() => (movie ? fromMovie(movie, calendarDate, (id) => byId.has(id)) : { ...EMPTY, suggestedBy: current.id }));
   const [qName, setQName] = useState(movie?.originalTitle || movie?.title || "");
   const [qYear, setQYear] = useState(movie ? String(movie.year) : "");
   const [candidates, setCandidates] = useState<Candidate[] | null>(null);
@@ -597,6 +605,10 @@ export function MovieForm({ movie, calendar, calendarDate = null }: { movie?: Mo
               ))}
             </select>
           </label>
+        </div>
+        <div className={labelCls}>
+          <span>¿Quién la sugirió?</span>
+          <ProfileChips value={f.suggestedBy} onChange={(id) => set("suggestedBy", id)} label="¿Quién la sugirió?" />
         </div>
         <label className={labelCls}>
           Notas
