@@ -8,7 +8,7 @@
 import { parseArgs } from "node:util";
 import { collections, getDb, LEGACY_HOME_ID } from "../src/lib/db";
 import { hashSecret } from "../src/lib/password";
-import { formatRecoveryCode, generateRecoveryCode } from "../src/lib/invite";
+import { formatRecoveryCode, generateRecoveryCode } from "../src/lib/recovery-code";
 import { starterAvatar } from "../src/lib/avatar";
 import { splitDisplayName } from "../src/lib/display-name";
 import { homeInputSchema } from "../src/lib/validation";

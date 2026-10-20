@@ -48,9 +48,9 @@ Next.js 16 · MongoDB Atlas · datos automáticos de JustWatch, sin IA ni API ke
 - **Importar una lista completa.** Pegan «Título (año)» una por línea, revisan las coincidencias dudosas y guardan todas de una vez.
 - **Galería.** El botón «Explorar en galería» (o el ícono de cada tarjeta) abre un carrusel casi a pantalla completa para recorrer sus películas: carátula, año, puntuaciones y plataformas de la que está al centro. Se navega con las flechas, con ← → del teclado o deslizando, y sigue el orden y los filtros de la lista.
 - **Marcar como vista** con un check verde animado y un sonido de campana (Web Audio, sin archivos). También tienen favoritas, calificación propia de 1 a 5 estrellas y notas.
-- **Calendario de adviento.** Empieza «Desde hoy», el 1 de octubre, el 1 de noviembre, el 1 de diciembre, en la Novena (16–24 dic) o en una fecha propia, y termina el 24 de diciembre. Las películas se arrastran a cada día. Tiene modo sorpresa (los días futuros quedan cerrados como regalos), «Repartir automáticamente» (asigna todas las pendientes aunque cambien el rango de fechas), «Mezclar» y «Vaciar» con opción de deshacer. Los contadores de arriba distinguen días libres de películas sin día, y las películas vistas que no tienen día aparecen en el panel lateral para que ninguna quede escondida. Al abrir una puerta se ve la película en grande: póster, sinopsis completa, puntuaciones y todas las plataformas con su enlace.
-- **Inicio que saluda** a quien está viendo («Buenas noches, Ana») con su personaje y su frase, muestra una cuenta regresiva hasta la medianoche de Navidad (hora de ustedes, con días, horas, minutos y segundos) y la película que toca hoy.
-- **Diseño navideño:** logo de árbol de Navidad, modo claro y oscuro con transición de círculo, nieve, guirnalda de luces, tipografía de Apple (SF Pro / New York), pie de página con créditos y vista móvil con barra de pestañas.
+- **Calendario de adviento.** Se arma en dos pasos. **1. Rango:** eligen «Desde hoy», el 1 de noviembre, el 1 de diciembre o una fecha propia (termina el 24 de diciembre) y ven cuántos días quedan frente a sus películas pendientes. **2. Organizar:** una vista ancha con la cuadrícula del mes y las carátulas sin día; el rango queda como una etiqueta con «Cambiar». Las películas se arrastran a cada día. Tiene modo sorpresa (los días futuros quedan cerrados como regalos), «Repartir automáticamente» (asigna todas las pendientes aunque cambien el rango de fechas), «Mezclar» y «Vaciar» con opción de deshacer. Los contadores de arriba distinguen días libres de películas sin día, y las películas vistas que no tienen día aparecen en el panel lateral para que ninguna quede escondida. Al abrir una puerta se ve la película en grande: póster, sinopsis completa, puntuaciones y todas las plataformas con su enlace.
+- **Inicio que saluda** a quien está viendo («Buenas noches, Ana») con su personaje y su frase, muestra una cuenta regresiva compacta hasta la medianoche de Navidad (hora de ustedes, con días, horas, minutos y segundos) y la película que toca hoy.
+- **Diseño navideño:** logo de árbol de Navidad, modo **automático** (oscuro de 6 p. m. a 6 a. m. según la hora del dispositivo) con menú Automático / Claro / Oscuro y transición de círculo, nieve, guirnalda de luces, tipografía de Apple (SF Pro Display y Text, con Inter de respaldo), botón flotante «Agregar», un árbol de Navidad animado en las pantallas de entrar y crear casa, pie de página con créditos y vista móvil con barra de pestañas.
 
 <div align="center">
 <img src="docs/avatar-editor.jpg" alt="Editor de perfil: vista previa grande de Santi, doce personajes, ocho colores de fondo y accesorios; «Gorro» está desactivado porque Santi ya trae el suyo" width="760" />
@@ -72,19 +72,18 @@ Next.js 16 · MongoDB Atlas · datos automáticos de JustWatch, sin IA ni API ke
 
 ## Casas, perfiles y límites
 
-**Una casa** es lo que se compra con una invitación: tiene un nombre, un **código** (por ejemplo `casa-montano`) y una **clave** que comparte toda la familia. **Un perfil** es cada persona dentro de la casa; no tiene clave, se elige en la pantalla de perfiles (hasta 8 por casa). El perfil elegido se guarda en una cookie del dispositivo y se cambia desde el menú del avatar, arriba a la derecha.
+**Una casa** es lo que crea cada familia: tiene un nombre, un **código** (por ejemplo `casa-montano`) y una **clave** que comparte toda la familia. **Un perfil** es cada persona dentro de la casa; no tiene clave, se elige en la pantalla de perfiles (hasta 8 por casa). El perfil elegido se guarda en una cookie del dispositivo y se cambia desde el menú del avatar, arriba a la derecha.
 
-**Crear una casa** solo se puede con una **invitación** de un solo uso que genera quien administra el servicio (ver [Administrar las casas](#administrar-las-casas)). Con ella se abre `/unirse/NAVI-XXXX-XXXX`, se elige nombre, código y clave, y la app muestra **una sola vez** un código de recuperación. Si olvidan la clave, `/recuperar` la restablece con ese código (y entrega uno nuevo). No hay correos ni cuentas de terceros.
+**Crear una casa** es abierto, sin invitación: en `/unirse` solo piden un **nombre** y una **clave**. El código de la casa sale del nombre («Casa Montaño» → `casa-montano`, con «Cambiar» si prefieren otro; si ya existe se usa `casa-montano-2`, etc.) y la app muestra **una sola vez** ese código y un código de recuperación. Para que nadie llene la base hay un tope de casas y un límite por conexión (ver abajo). Si olvidan la clave, `/recuperar` la restablece con ese código (y entrega uno nuevo). No hay correos ni cuentas de terceros.
 
 | Límite | Valor | Para qué |
 |---|---|---|
-| Casas en total (`HOME_CAP`) | 25 | Que el servicio no crezca sin que su dueño lo decida |
+| Casas en total (`HOME_CAP`) | 200 | Que el servicio no crezca sin que su dueño lo decida |
 | Perfiles por casa | 8 | |
-| Películas por casa | 150 | ~3 KB cada una: 25 casas llenas ≈ 11 MB, muy por debajo de los 512 MB del plan gratis de Atlas |
+| Películas por casa | 150 | ~3 KB cada una: 200 casas llenas ≈ 90 MB, muy por debajo de los 512 MB del plan gratis de Atlas |
 | Claves o códigos de recuperación fallidos | 5 cada 15 min por IP y casa | Frenar la adivinanza de claves |
-| Invitaciones fallidas | 5 por hora por IP | Frenar la adivinanza de invitaciones |
+| Casas nuevas | 3 por día por IP | Como el registro es abierto, evita que una sola persona llene la base |
 | Búsquedas en JustWatch/OMDb | 30 por hora por casa | Proteger la cuota gratis de OMDb |
-| Invitaciones | un solo uso, vencen a los 14 días, 8 caracteres | |
 | Casas sin actividad | se borran tras 12 meses (cron semanal) | Limpieza automática |
 
 Otras defensas: las claves se guardan con `scrypt` y comparación en tiempo constante; el error de entrada es el mismo exista o no el código de la casa; cada acción del servidor vuelve a comprobar la sesión **y** que el perfil pertenezca a esa casa; y una casa borrada deja de poder escribir aunque su cookie siga vigente.
@@ -133,8 +132,8 @@ sequenceDiagram
   actor N as Familia nueva
   participant S as Servidor
   participant M as MongoDB
-  N->>S: abre /unirse/NAVI-XXXX-XXXX y elige nombre, código y clave
-  S->>M: reclamar la invitación (una sola vez, no vencida)
+  N->>S: abre /unirse y escribe nombre y clave
+  S->>S: límite por IP y tope de casas; el código sale del nombre
   S->>M: crear la casa con la clave y el código de recuperación en hash
   S-->>N: cookie de casa y código de recuperación, que se muestra una vez
   N->>S: crea su primer perfil (personaje, color, accesorio)
@@ -161,9 +160,9 @@ Copien [`.env.example`](.env.example) a `.env.local`, que git ignora.
 | `MONGODB_URI` | ✅ | Cadena de conexión de Atlas (`mongodb+srv://…`). Ver [Configurar MongoDB Atlas](#configurar-mongodb-atlas). |
 | `MONGODB_DB` | | Nombre de la base. Por defecto `christmas-movies`. |
 | `AUTH_SECRET` | ✅ | Firma las cookies de sesión (mínimo 32 caracteres): `openssl rand -base64 32`. |
-| `ADMIN_PASSWORD` | ✅ | Clave del panel `/admin`, donde se crean invitaciones. Si falta, se usa `APP_PASSWORD`. |
+| `ADMIN_PASSWORD` | ✅ | Clave del panel `/admin`, donde se ven y borran las casas. Si falta, se usa `APP_PASSWORD`. |
 | `APP_PASSWORD` | solo al migrar | Clave de la **primera casa**, la que crea `pnpm migrate:homes` a partir del dashboard de antes. Después ya no se usa para entrar. |
-| `HOME_CAP` | | Máximo de casas. Por defecto 25; `0` cierra los registros. |
+| `HOME_CAP` | | Máximo de casas. Por defecto 200; `0` cierra los registros. |
 | `CRON_SECRET` | ✅ en Vercel | Protege la limpieza semanal: Vercel la envía como `Authorization: Bearer …`. `openssl rand -base64 32`. |
 | `OMDB_API_KEY` | | Clave gratis de [omdbapi.com](https://www.omdbapi.com/apikey.aspx). |
 
@@ -188,11 +187,10 @@ MONGODB_DB=christmas-movies-demo pnpm dev      # abrir la app con esos datos
 pnpm demo --limpiar                            # borrarlos
 ```
 
-**Empezar de cero en una base nueva.** No hay casas todavía, así que se crean desde el panel:
+**Empezar de cero en una base nueva.** No hay casas todavía:
 
-1. Abran `http://localhost:3000/admin`, entren con `ADMIN_PASSWORD` y pulsen **Crear invitación**.
-2. Abran el enlace `/unirse/NAVI-…`, elijan nombre, código y clave, y guarden el código de recuperación.
-3. Creen el primer perfil y ya pueden agregar o importar películas.
+1. Abran `http://localhost:3000/unirse`, escriban el nombre de la casa y una clave, y guarden el código de la casa y el de recuperación.
+2. Creen el primer perfil y ya pueden agregar o importar películas.
 
 **Convertir el dashboard anterior (una sola clave) en la primera casa.** Conserva todas las películas y el calendario y no reescribe ningún documento: la casa toma el identificador `household`, que ya llevaban. Los nombres del saludo viejo («Ana y Leo») se convierten en perfiles. Es idempotente.
 
@@ -212,7 +210,7 @@ pnpm seed --slug casa-montano    # una casa en concreto
 **Pruebas y chequeos:**
 
 ```bash
-pnpm test        # 64 pruebas: calendario y reparto automático, duplicados, saludo, formato, JustWatch, claves, invitaciones, límites, créditos de películas, avatares
+pnpm test        # 70 pruebas: calendario y reparto automático, duplicados, saludo, formato, JustWatch, claves, códigos de casa y recuperación, tema automático, límites, créditos de películas, avatares
 pnpm lint
 pnpm typecheck
 pnpm build
@@ -247,7 +245,7 @@ vercel env add MONGODB_URI production    # repetir con cada variable
 vercel deploy --prod
 ```
 
-El archivo [`vercel.json`](vercel.json) programa la limpieza semanal (lunes, 8:00 UTC) en `/api/cron/cleanup`, que borra las casas sin actividad en 12 meses (nunca la casa original) y las invitaciones vencidas hace más de un mes.
+El archivo [`vercel.json`](vercel.json) programa la limpieza semanal (lunes, 8:00 UTC) en `/api/cron/cleanup`, que borra las casas sin actividad en 12 meses (nunca la casa original).
 
 > En Vercel las cookies son `Secure`: la de la casa dura 30 días y la del perfil un año. Para cerrar todas las sesiones de una vez, cambien `AUTH_SECRET` y vuelvan a desplegar.
 
@@ -256,10 +254,9 @@ El archivo [`vercel.json`](vercel.json) programa la limpieza semanal (lunes, 8:0
 `/admin` (con `ADMIN_PASSWORD`) es el panel de quien opera el servicio:
 
 <div align="center">
-<img src="docs/admin.jpg" alt="Panel de administración: invitaciones con su estado y la lista de casas con perfiles y películas" width="640" />
+<img src="docs/admin.jpg" alt="Panel de administración: la lista de casas con perfiles y películas" width="640" />
 </div>
 
-- **Invitaciones:** crear (se copia el código o el enlace para enviarlo), ver si están disponibles, usadas o vencidas, y revocar las que no se han usado.
 - **Casas:** cuántas hay frente al tope, cuántos perfiles y películas tiene cada una y cuándo fue su última actividad. Se pueden borrar escribiendo su código para confirmar; se elimina todo lo suyo.
 
 ## Decisiones técnicas
@@ -271,7 +268,7 @@ El archivo [`vercel.json`](vercel.json) programa la limpieza semanal (lunes, 8:0
 | **Cache Components de Next 16**: shell estático + `<Suspense>` | Cada página carga al instante con esqueletos y los datos de Mongo llegan en streaming. Las mutaciones llaman `refresh()` y la UI responde al momento con `useOptimistic`. |
 | **Casa (clave) → perfil (sin clave)**, ambos en cookies JWT firmadas con `jose` | Se parece a una cuenta de Netflix: la familia comparte una clave y cada persona elige su perfil. No hay cuentas por persona ni correos. `proxy.ts` hace el control rápido en dos pasos, y cada lectura y cada Server Action vuelve a verificar la sesión. |
 | **`ownerId` pasó a ser el id de la casa** | Todos los documentos ya lo llevaban; así la casa original conserva su identificador (`household`) y migrar no reescribe ningún dato. |
-| **Registro solo por invitación** | Es la defensa más fuerte contra que alguien llene la base: nadie crea una casa sin un código de un solo uso que usted generó. Complementa los topes y los límites de intentos. |
+| **Registro abierto con límites** | Pedir una invitación complicaba entrar. Ahora basta nombre y clave, y la base se protege con un tope de casas (`HOME_CAP`), 3 casas nuevas por día por IP y la limpieza de casas inactivas. |
 | **Contadores de intentos en MongoDB con índice TTL** | Sin Redis ni servicios extra: cada ventana se borra sola al vencer. La lógica del límite es independiente del almacenamiento, por eso tiene pruebas con un almacén en memoria. |
 | **Avatares en SVG dentro del código** | Sin subir imágenes no hay almacenamiento, costos ni contenido que moderar; cada avatar guarda solo `{personaje, color, accesorio}`, validado contra una lista cerrada. |
 | **La hora se calcula solo en el navegador** | El saludo, «Hoy toca» y la cuenta regresiva usan la zona horaria de ustedes, no la del servidor (UTC). Así se evitan errores de hidratación. |
@@ -282,9 +279,8 @@ El archivo [`vercel.json`](vercel.json) programa la limpieza semanal (lunes, 8:0
 ## Modelo de datos
 
 ```text
-homes       { _id, slug (único), name, passwordHash, recoveryHash, inviteCode, createdAt, lastActiveAt }
+homes       { _id, slug (único), name, passwordHash, recoveryHash, createdAt, lastActiveAt }
 profiles    { _id, homeId, name, avatar{character, bg, accessory}, createdAt }
-invites     { _id (código), createdAt, expiresAt, usedAt, usedByHomeId }
 rate_limits { _id (clave del límite), count, expiresAt }   · TTL: se borra sola
 movies      { ownerId (= id de la casa), title, originalTitle, year, posterUrl, backdropUrl, synopsis, genres[],
               runtimeMinutes, trailerUrl, ratings{imdb, rottenTomatoes, certifiedFresh},
@@ -303,9 +299,9 @@ src/
 ├── proxy.ts                 # sin casa → /login · con casa y sin perfil → /perfiles
 ├── app/
 │   ├── (app)/               # inicio, películas (lista, detalle, nueva, editar, importar), calendario, sugeridas
-│   ├── login/ unirse/ recuperar/   # entrar con código y clave · crear casa con invitación · recuperar acceso
+│   ├── (auth)/login unirse recuperar   # entrar · crear casa (nombre y clave) · recuperar acceso, con el árbol animado
 │   ├── perfiles/            # «¿Quién está viendo?», editor de perfiles
-│   ├── admin/               # invitaciones y casas
+│   ├── admin/               # casas
 │   ├── api/cron/cleanup/    # limpieza semanal (Vercel Cron)
 │   ├── salir/               # limpia la sesión de una casa que ya no existe
 │   └── globals.css          # paleta navideña (tokens claro/oscuro) y animaciones
@@ -315,7 +311,7 @@ src/
     ├── metadata/            # JustWatch (búsqueda y mapeo) y OMDb
     ├── dal.ts · db.ts       # acceso a datos con verificación de sesión · cliente de Mongo
     ├── jwt.ts · session.ts  # cookies de casa, perfil y admin
-    ├── password.ts · invite.ts   # scrypt · códigos de invitación y recuperación
+    ├── password.ts · recovery-code.ts   # scrypt · código de recuperación
     ├── limits.ts · rate-limit.ts # topes y límites de intentos
     ├── avatar.ts · credits.ts    # personajes, colores y accesorios · texto «sugerida por…»
     ├── calendar.ts          # rangos, celdas del mes, reparto automático
@@ -336,8 +332,8 @@ docs/                        # logo y capturas del README
 | «Ese código de casa o esa clave no coinciden» | El código o la clave están mal; el aviso es el mismo a propósito. Si olvidaron la clave, usen [Recuperar acceso](#casas-perfiles-y-límites). |
 | «Demasiados intentos. Prueba de nuevo en 15 minutos» | Se pasaron de 5 intentos fallidos desde esa red para esa casa. Esperen o cambien de red. |
 | Después de desplegar nadie puede entrar | Faltó migrar el dashboard anterior: corran `pnpm migrate:homes` contra la base de producción (ver [Probarlo en local](#probarlo-en-local)). |
-| «Ese código de invitación no es válido, ya se usó o venció» | Cada invitación sirve una vez y dura 14 días. Generen otra en `/admin`. |
-| «Por ahora no hay lugar para más casas» | Se alcanzó `HOME_CAP`. Súbanlo o borren casas en `/admin`. |
+| «Demasiados intentos» al crear una casa | Esa conexión ya creó 3 casas hoy. Esperen o usen otra red. |
+| «Por ahora no hay lugar para más casas» | Se alcanzó `HOME_CAP`. Súbanlo o borren casas inactivas en `/admin`. |
 | El cron de limpieza responde 401 | Falta `CRON_SECRET` en Vercel (o no coincide). Agréguela y vuelvan a desplegar. |
 | `AUTH_SECRET debe tener al menos 32 caracteres` | Generen uno con `openssl rand -base64 32`. |
 | La búsqueda no encuentra una película | Prueben con el título original en inglés, o sin año. Si JustWatch no la tiene (por ejemplo, «In fraganti», 2009), elijan «Agregar sin datos» y completen a mano. |
@@ -353,7 +349,7 @@ docs/                        # logo y capturas del README
 - [x] Calendario de adviento con arrastrar y soltar y modo sorpresa
 - [x] Modo claro/oscuro, nieve, sonidos y vista móvil
 - [x] Sugeridas y bloqueo de duplicados
-- [x] Casas con invitación, perfiles y avatares navideños, con quién agregó y sugirió cada película
+- [x] Casas de registro abierto (nombre y clave), perfiles y avatares navideños, con quién agregó y sugirió cada película
 - [x] Límites anti-abuso y limpieza de casas inactivas
 - [ ] PIN opcional por perfil
 - [ ] Calificación y favoritas por perfil (hoy son de la casa)

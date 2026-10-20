@@ -22,8 +22,9 @@ export async function saveCalendarAction(raw: CalendarPatch): Promise<ActionResu
     if (patch.preset) set.preset = patch.preset;
     // The client computes the start in the household's own timezone; the server only clamps it.
     const start = patch.startDate ?? (patch.preset ? presetStart(patch.preset, season, new Date()) : undefined);
-    if (start) set.startDate = start > end ? end : start < `${season - 1}-12-25` ? `${season}-10-01` : start;
+    if (start) set.startDate = start > end ? end : start < `${season - 1}-12-25` ? `${season}-11-01` : start;
     if (patch.surprise !== undefined) set.surprise = patch.surprise;
+    if (patch.configured) set.configuredAt = new Date();
     if (patch.assignments) {
       // Only this household's movies, only this season, one day per movie.
       const ids = [...new Set(Object.values(patch.assignments))];

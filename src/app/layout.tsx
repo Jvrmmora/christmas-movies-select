@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { Providers, themeScript } from "@/components/providers";
+import { THEME_COLORS } from "@/lib/theme";
 import "./globals.css";
 
 // SF Pro comes from the system on Apple devices; Inter is the fallback elsewhere.
@@ -13,11 +14,9 @@ export const metadata: Metadata = {
   appleWebApp: { title: "Navidad en casa", statusBarStyle: "black-translucent" },
 };
 
+// One theme-color tag: <Providers> keeps it in step with the automatic (by-the-clock) or chosen theme.
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#FBF8F3" },
-    { media: "(prefers-color-scheme: dark)", color: "#0B1410" },
-  ],
+  themeColor: THEME_COLORS.light,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

@@ -63,8 +63,10 @@ export type MovieInput = z.input<typeof movieInputSchema>;
 export type MovieInputParsed = z.output<typeof movieInputSchema>;
 
 export const calendarPatchSchema = z.object({
-  preset: z.enum(["today", "oct", "nov", "dec", "novena", "custom"]).optional(),
+  preset: z.enum(["today", "nov", "dec", "custom"]).optional(),
   startDate: z.string().regex(DATE_KEY).optional(),
+  /** Sent by the range picker's "Guardar": marks the calendar as set up. */
+  configured: z.literal(true).optional(),
   assignments: z.record(z.string().regex(DATE_KEY), z.string().regex(/^[a-f0-9]{24}$/)).optional(),
   surprise: z.boolean().optional(),
 });

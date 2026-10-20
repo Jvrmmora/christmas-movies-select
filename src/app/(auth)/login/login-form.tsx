@@ -38,7 +38,7 @@ export function LoginForm({ next }: { next: string }) {
           /* ignore */
         }
       }}
-      className="mt-8 flex flex-col gap-4"
+      className="mt-7 flex flex-col gap-4"
     >
       <input type="hidden" name="next" value={next} />
       <Field
@@ -54,17 +54,20 @@ export function LoginForm({ next }: { next: string }) {
         autoComplete="username"
         placeholder="casa-montano"
       />
-      <Field id="password" label="Clave" icon={LockKeyhole} type="password" required autoComplete="current-password" />
+      <Field id="password" label="Clave" icon={LockKeyhole} type="password" required autoComplete="current-password" placeholder="Su clave" />
+      <Link href="/recuperar" className="-mt-2 self-end text-[13px] font-semibold text-gold-ink underline-offset-4 hover:underline">
+        ¿Olvidaron la clave?
+      </Link>
       <FormError>{state.error}</FormError>
       <SubmitButton pending={pending} idle="Entrar" busy="Entrando…" />
-      <div className="mt-1 flex flex-wrap justify-between gap-x-4 gap-y-1 text-sm">
-        <Link href="/unirse" className="font-medium text-berry-ink underline-offset-4 hover:underline">
-          Crear mi casa con una invitación
-        </Link>
-        <Link href="/recuperar" className="text-ink-2 underline-offset-4 hover:underline">
-          Olvidé la clave
-        </Link>
+      <div className="flex items-center gap-3 text-[13px] text-ink-2">
+        <span className="h-px flex-1 bg-line" />
+        ¿Primera vez?
+        <span className="h-px flex-1 bg-line" />
       </div>
+      <Link href="/unirse" className="nv-press grid h-[52px] place-items-center rounded-[14px] border border-line text-base font-semibold text-ink hover:bg-surface">
+        Crear una casa nueva
+      </Link>
     </form>
   );
 }

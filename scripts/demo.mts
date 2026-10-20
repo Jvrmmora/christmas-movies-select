@@ -6,7 +6,7 @@
  */
 import { randomUUID } from "node:crypto";
 import { collections, LEGACY_HOME_ID, getDb } from "../src/lib/db";
-import { generateRecoveryCode } from "../src/lib/invite";
+import { generateRecoveryCode } from "../src/lib/recovery-code";
 import { hashSecret } from "../src/lib/password";
 import type { Avatar } from "../src/lib/avatar";
 import { seasonEnd, seasonFor, toKey } from "../src/lib/calendar";

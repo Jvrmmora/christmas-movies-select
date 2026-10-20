@@ -18,12 +18,12 @@ export function PosterGridSkeleton({ count = 12 }: { count?: number }) {
 
 export function DashboardSkeleton() {
   return (
-    <div className="flex flex-col gap-12" role="status" aria-label="Cargando">
-      <div className="flex flex-wrap gap-6">
-        <Bone className="h-[360px] flex-[999_1_560px] rounded-[28px]" />
-        <Bone className="h-[360px] flex-[1_1_300px] rounded-[28px]" />
+    <div className="flex flex-col gap-10" role="status" aria-label="Cargando">
+      <div className="flex flex-wrap gap-5">
+        <Bone className="h-[228px] flex-[999_1_560px] rounded-3xl" />
+        <Bone className="h-[228px] flex-[1_1_280px] rounded-3xl" />
       </div>
-      <Bone className="h-[360px] rounded-[28px]" />
+      <Bone className="h-[84px] rounded-[20px]" />
       <PosterGridSkeleton count={6} />
     </div>
   );

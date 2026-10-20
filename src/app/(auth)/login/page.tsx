@@ -1,17 +1,17 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { AuthShell } from "@/components/auth/auth-shell";
+import { AuthHeading } from "@/components/auth/auth-shell";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = { title: "Entrar" };
 
 export default function LoginPage({ searchParams }: PageProps<"/login">) {
   return (
-    <AuthShell title="Navidad en casa" subtitle="Sus películas de Navidad, dónde verlas y su calendario de adviento.">
+    <AuthHeading title="Bienvenidos a casa" subtitle="Entren con el código de su casa y su clave.">
       <Suspense fallback={<LoginForm next="/" />}>
         <LoginWithNext searchParams={searchParams} />
       </Suspense>
-    </AuthShell>
+    </AuthHeading>
   );
 }
 

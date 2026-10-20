@@ -66,7 +66,7 @@ export interface Candidate extends MovieData {
   inLibrary?: { id: string; title: string } | null;
 }
 
-export type RangePreset = "today" | "oct" | "nov" | "dec" | "novena" | "custom";
+export type RangePreset = "today" | "nov" | "dec" | "custom";
 
 export interface CalendarState {
   season: number;
@@ -78,6 +78,8 @@ export interface CalendarState {
   /** date key → movie id */
   assignments: Record<string, string>;
   surprise: boolean;
+  /** The household already chose its range (step 1); false shows the range picker first. */
+  configured: boolean;
 }
 
 /** Serializable profile handed to client components. */
@@ -100,20 +102,9 @@ export interface AdminHome extends HomeInfo {
   lastActiveAt: string;
 }
 
-export interface AdminInvite {
-  /** Shown as NAVI-XXXX-XXXX. */
-  code: string;
-  createdAt: string;
-  expiresAt: string;
-  status: "open" | "used" | "expired";
-  /** Code of the home that redeemed it, when it still exists. */
-  usedBySlug: string | null;
-}
-
 export interface AdminOverview {
   cap: number;
   homes: AdminHome[];
-  invites: AdminInvite[];
 }
 
 export type ActionResult<T = undefined> =

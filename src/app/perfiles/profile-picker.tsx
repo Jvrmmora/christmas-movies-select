@@ -87,7 +87,7 @@ export function ProfilePicker({ home, profiles, next, editId }: { home: HomeInfo
   return (
     <div className="nv-fade flex w-full flex-col items-center text-center">
       <p className="text-sm font-semibold tracking-wide text-gold-ink uppercase">{home.name}</p>
-      <h1 className="mt-2 font-serif text-[34px] leading-[1.1] font-semibold tracking-[-0.025em] sm:text-[44px]">
+      <h1 className="mt-2 font-display text-[34px] leading-[1.1] font-bold tracking-[-0.035em] sm:text-[44px]">
         {manage ? "Administrar perfiles" : "¿Quién está viendo la peli?"}
       </h1>
 
@@ -191,7 +191,7 @@ function Editor({
         if (valid) onSave({ ...draft, name: draft.name.trim() });
       }}
     >
-      <h1 className="font-serif text-[30px] leading-tight font-semibold tracking-[-0.02em]">{title}</h1>
+      <h1 className="font-display text-[30px] leading-tight font-bold tracking-[-0.03em]">{title}</h1>
       {subtitle && <p className="mt-1 text-ink-2">{subtitle}</p>}
       <div className="mt-8">
         <AvatarEditor draft={draft} onChange={setDraft} />

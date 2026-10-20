@@ -17,7 +17,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { CalendarDays, Check, Clapperboard, ExternalLink, Gift, GripVertical, Play, Plus, Shuffle, Star, Trash2, WandSparkles } from "lucide-react";
+import { CalendarDays, Check, Clapperboard, ExternalLink, GripVertical, Play, Plus, Star } from "lucide-react";
 import { toast } from "sonner";
 import { saveCalendarAction } from "@/actions/calendar";
 import { Credits, SuggestedBadge } from "@/components/profiles/attribution";
@@ -27,14 +27,15 @@ import { useWatched, WatchedButton } from "@/components/movies/watched";
 import { Poster, ProviderLogo } from "@/components/ui/poster";
 import { ImdbLogo, RtLogo } from "@/components/ui/rating-badges";
 import { CloseButton, Dialog } from "@/components/ui/dialog";
-import { SwitchTrack } from "@/components/ui/switch";
-import { freeDays, MONTH_NAMES, monthCells, parseKey, planAutoFill, PRESETS, presetStart, rangeDays, toKey } from "@/lib/calendar";
+import { freeDays, MONTH_NAMES, monthCells, parseKey, planAutoFill, rangeDays, toKey } from "@/lib/calendar";
 import { formatRuntime, formatScore, OFFER_GROUP_LABEL } from "@/lib/format";
 import { primaryOffer } from "@/lib/platforms";
-import type { CalendarState, Movie, RangePreset } from "@/lib/types";
+import type { CalendarState, Movie } from "@/lib/types";
+import { CalendarToolbar } from "./calendar-toolbar";
 
 const longFmt = new Intl.DateTimeFormat("es-CO", { weekday: "long", day: "numeric", month: "long" });
 const shortFmt = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "long" });
+const chipFmt = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short" });
 const WEEKDAYS = ["LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB", "DOM"];
 
 /** The day under the finger wins; rectangles only as a fallback (keyboard, edges). */
@@ -43,7 +44,7 @@ const collision: CollisionDetection = (args) => {
   return hits.length ? hits : rectIntersection(args);
 };
 
-type Patch = Partial<Pick<CalendarState, "preset" | "startDate" | "assignments" | "surprise">>;
+type Patch = Partial<Pick<CalendarState, "assignments" | "surprise">>;
 
 export function AdventCalendar({ movies, calendar }: { movies: Movie[]; calendar: CalendarState }) {
   const now = useNow();
@@ -53,7 +54,6 @@ export function AdventCalendar({ movies, calendar }: { movies: Movie[]; calendar
   const [cal, applyOptimistic] = useOptimistic(calendar, (s, p: Patch) => ({ ...s, ...p }));
   const [, startTransition] = useTransition();
   const [month, setMonth] = useState<string | null>(null);
-  const [customStart, setCustomStart] = useState(calendar.preset === "custom" ? calendar.startDate : `${calendar.season}-11-15`);
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [pickKey, setPickKey] = useState<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
@@ -167,12 +167,6 @@ export function AdventCalendar({ movies, calendar }: { movies: Movie[]; calendar
     toast("Calendario vaciado desde hoy", { action: { label: "Deshacer", onClick: () => persist({ assignments: previous }) } });
   };
 
-  const choosePreset = (preset: RangePreset) => {
-    const startDate = presetStart(preset, cal.season, now ?? new Date(), customStart);
-    setMonth(null);
-    persist({ preset, startDate });
-  };
-
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 6 } }),
@@ -200,101 +194,44 @@ export function AdventCalendar({ movies, calendar }: { movies: Movie[]; calendar
 
   return (
     <DndContext id={dndId} sensors={sensors} collisionDetection={collision} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setDragging(null)}>
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="font-serif text-[38px] leading-[1.05] font-semibold tracking-[-0.025em] sm:text-5xl">Calendario de adviento</h1>
-            <p className="mt-2 text-base text-ink-2 sm:text-[17px]">
-              Una película por día hasta Nochebuena · {shortFmt.format(parseKey(cal.startDate))} al {shortFmt.format(parseKey(cal.endDate))}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2 text-sm font-semibold tabular-nums">
-            <span className="inline-flex h-9 items-center rounded-full bg-surface px-3.5 shadow-card">{days.length} días en total</span>
-            <span className="inline-flex h-9 items-center rounded-full bg-pine-soft px-3.5 text-pine">{assignedCount} días con película</span>
-            <span className="inline-flex h-9 items-center rounded-full bg-gold-soft px-3.5 text-gold-ink">{days.length - assignedCount} días libres</span>
+      <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-2.5">
+          <h1 className="font-display text-[clamp(28px,3.4vw,36px)] leading-[1.08] font-bold tracking-[-0.035em]">Calendario de adviento</h1>
+          <div className="flex flex-wrap items-center gap-2 text-[13px] font-semibold tabular-nums">
+            <span className="inline-flex h-8 items-center gap-2.5 rounded-full bg-surface pr-1 pl-3 shadow-card">
+              {chipFmt.format(parseKey(cal.startDate)).replace(".", "")} → 24 dic · {days.length} días
+              <Link href="/calendario/rango" className="inline-flex h-6 items-center rounded-full bg-surface-2 px-2.5 text-ink hover:bg-line">
+                Cambiar
+              </Link>
+            </span>
+            <span className="inline-flex h-8 items-center rounded-full bg-pine-soft px-3 text-pine">{assignedCount} con película</span>
+            <span className="inline-flex h-8 items-center rounded-full bg-gold-soft px-3 text-gold-ink">{days.length - assignedCount} libres</span>
             {pool.length > 0 && (
-              <span className="inline-flex h-9 items-center rounded-full bg-berry-soft px-3.5 text-berry-ink">
+              <span className="inline-flex h-8 items-center rounded-full bg-berry-soft px-3 text-berry-ink">
                 {pool.length} {pool.length === 1 ? "película sin día" : "películas sin día"}
               </span>
             )}
             {seenNoDay.length > 0 && (
-              <span className="inline-flex h-9 items-center rounded-full bg-surface-2 px-3.5 text-ink-2">
+              <span className="inline-flex h-8 items-center rounded-full bg-surface-2 px-3 text-ink-2">
                 {seenNoDay.length} {seenNoDay.length === 1 ? "vista sin día" : "vistas sin día"}
               </span>
             )}
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 rounded-[20px] border border-line border-l-4 border-l-gold bg-surface p-3 shadow-card sm:p-4">
-          <span className="hidden items-center gap-2 pr-1 text-xs font-bold tracking-[0.08em] text-gold-ink uppercase lg:inline-flex">
-            <CalendarDays className="size-4" strokeWidth={2} aria-hidden />
-            Empezar
-          </span>
-          <div role="group" aria-label="Desde cuándo" className="nv-no-scrollbar flex max-w-full gap-1 overflow-x-auto rounded-[14px] bg-surface-2 p-1">
-            {PRESETS.map((p) => {
-              const on = cal.preset === p.key;
-              return (
-                <button
-                  key={p.key}
-                  type="button"
-                  aria-pressed={on}
-                  onClick={() => choosePreset(p.key)}
-                  className={`h-9 flex-none rounded-[10px] px-3.5 text-sm font-semibold ${on ? "bg-surface text-ink shadow-card" : "text-ink-2"}`}
-                >
-                  {p.label}
-                </button>
-              );
-            })}
-          </div>
-          {cal.preset === "custom" && (
-            <label className="flex items-center gap-2 text-sm text-ink-2">
-              Desde
-              <input
-                type="date"
-                value={customStart}
-                min={`${cal.season}-10-01`}
-                max={cal.endDate}
-                onChange={(e) => {
-                  setCustomStart(e.target.value);
-                  if (e.target.value) persist({ preset: "custom", startDate: e.target.value });
-                }}
-                className="h-9 rounded-[10px] border border-line bg-surface px-2 text-ink"
-              />
-              hasta el 24 dic
-            </label>
-          )}
-          <button
-            type="button"
-            role="switch"
-            aria-checked={cal.surprise}
-            onClick={() => {
-              persist({ surprise: !cal.surprise });
-              play("jingle");
-            }}
-            className="inline-flex h-11 items-center gap-2.5 rounded-full border border-line bg-surface pr-1.5 pl-3.5 text-sm font-semibold text-ink"
-          >
-            <Gift className="size-[17px]" strokeWidth={1.8} aria-hidden />
-            Modo sorpresa
-            <SwitchTrack on={cal.surprise} />
-          </button>
-          <div className="flex flex-wrap gap-2 md:ml-auto">
-            <button type="button" onClick={autoFill} className="nv-press inline-flex h-11 items-center gap-2 rounded-xl bg-pine px-4 text-sm font-semibold text-white">
-              <WandSparkles className="size-[17px]" strokeWidth={1.8} aria-hidden />
-              Repartir automáticamente
-            </button>
-            <button type="button" onClick={shuffle} className="nv-press inline-flex h-11 items-center gap-2 rounded-xl border border-line bg-surface px-3.5 text-sm font-semibold text-ink">
-              <Shuffle className="size-[17px]" strokeWidth={1.8} aria-hidden />
-              Mezclar
-            </button>
-            <button type="button" onClick={clearUpcoming} className="nv-press inline-flex h-11 items-center gap-2 rounded-xl border border-line bg-surface px-3.5 text-sm font-semibold text-berry-ink">
-              <Trash2 className="size-[17px]" strokeWidth={1.8} aria-hidden />
-              Vaciar
-            </button>
-          </div>
-        </div>
+        <CalendarToolbar
+          surprise={cal.surprise}
+          onToggleSurprise={() => {
+            persist({ surprise: !cal.surprise });
+            play("jingle");
+          }}
+          onAutoFill={autoFill}
+          onShuffle={shuffle}
+          onClear={clearUpcoming}
+        />
 
-        <div className="flex flex-wrap items-start gap-6">
-          <section aria-label="Días" className="flex min-w-0 flex-[999_1_640px] flex-col gap-4 rounded-[28px] border border-line border-t-4 border-t-berry bg-surface p-3 shadow-card sm:p-6">
+        <div className="flex flex-wrap items-start gap-5">
+          <section aria-label="Días" className="flex min-w-0 flex-[999_1_640px] flex-col gap-4 rounded-3xl bg-surface p-3 shadow-card sm:p-5">
             <div className="flex items-center gap-3">
               <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-berry-soft text-berry-ink">
                 <CalendarDays className="size-5" strokeWidth={1.8} aria-hidden />
@@ -531,12 +468,12 @@ function Door({
           <>
             <span aria-hidden className="absolute inset-y-0 left-1/2 -ml-[3px] w-1.5 bg-gold opacity-90 sm:-ml-1.5 sm:w-3" />
             <span aria-hidden className="absolute inset-x-0 top-1/2 -mt-[3px] h-1.5 bg-gold opacity-90 sm:-mt-1.5 sm:h-3" />
-            <span className="absolute top-1 left-1.5 font-serif text-sm font-semibold text-white tabular-nums sm:top-2 sm:left-2.5 sm:text-[26px]">{day}</span>
+            <span className="absolute top-1 left-1.5 font-display text-sm font-semibold text-white tabular-nums sm:top-2 sm:left-2.5 sm:text-[26px]">{day}</span>
           </>
         )}
         {!movie && (
           <>
-            <span className="absolute inset-0 grid place-items-center font-serif text-base font-semibold text-ink-2 tabular-nums sm:inset-auto sm:top-2 sm:left-2.5 sm:text-2xl">{day}</span>
+            <span className="absolute inset-0 grid place-items-center font-display text-base font-semibold text-ink-2 tabular-nums sm:inset-auto sm:top-2 sm:left-2.5 sm:text-2xl">{day}</span>
             <span aria-hidden className="absolute top-[58%] left-1/2 hidden size-[30px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-surface-2 text-ink-2 sm:grid">
               <Plus className="size-4" strokeWidth={2.2} />
             </span>
@@ -606,7 +543,7 @@ function Pool({ movies, seen, onQuick }: { movies: Movie[]; seen: Movie[]; onQui
     <aside
       ref={setNodeRef}
       aria-labelledby="pool-title"
-      className={`flex flex-col gap-3.5 border border-line bg-surface p-4 transition-shadow md:border-t-4 md:border-t-pine max-md:fixed max-md:inset-x-0 max-md:bottom-[calc(70px+env(safe-area-inset-bottom))] max-md:z-20 max-md:rounded-t-3xl max-md:shadow-[0_-10px_30px_rgba(0,0,0,.12)] md:sticky md:top-28 md:flex-[1_1_280px] md:rounded-[28px] md:p-5 ${
+      className={`flex flex-col gap-3.5 border border-line bg-surface p-4 transition-shadow max-md:fixed max-md:inset-x-0 max-md:bottom-[calc(70px+env(safe-area-inset-bottom))] max-md:z-20 max-md:rounded-t-3xl max-md:shadow-[0_-10px_30px_rgba(0,0,0,.12)] md:sticky md:top-24 md:flex-[1_1_300px] md:rounded-3xl md:border-transparent md:p-5 ${
         isOver ? "shadow-[0_0_0_3px_var(--pine),var(--shadow)]" : "md:shadow-card"
       }`}
     >
