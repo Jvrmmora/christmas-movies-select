@@ -20,6 +20,7 @@ import {
 import { CalendarDays, Check, Clapperboard, ExternalLink, Gift, GripVertical, Play, Plus, Shuffle, Star, Trash2, WandSparkles } from "lucide-react";
 import { toast } from "sonner";
 import { saveCalendarAction } from "@/actions/calendar";
+import { Credits, SuggestedBadge } from "@/components/profiles/attribution";
 import { usePrefs } from "@/components/providers";
 import { useNow } from "@/components/use-now";
 import { useWatched, WatchedButton } from "@/components/movies/watched";
@@ -547,6 +548,12 @@ function Door({
           </span>
         )}
       </button>
+      {/* Who suggested it, hanging off the bottom edge. Hidden while the surprise door is closed: it would give the movie away. */}
+      {movie && !closed && (
+        <span className="pointer-events-none absolute -bottom-[5px] left-1/2 z-[1] -translate-x-1/2 sm:-bottom-2.5">
+          <SuggestedBadge movie={movie} size={26} className="size-[18px] shadow-[0_1px_4px_rgba(0,0,0,.35)] ring-2 ring-surface sm:size-[26px]" />
+        </span>
+      )}
       {isToday && (
         <span aria-hidden className="absolute -top-2.5 left-1/2 z-[2] hidden h-5 -translate-x-1/2 place-items-center rounded-full bg-gold px-2 text-[11px] font-extrabold tracking-[0.08em] text-[#1C1C1E] sm:grid">
           HOY
@@ -711,6 +718,7 @@ function DoorDialog({
             <p className="text-base text-ink-2">
               {[movie.originalTitle && movie.originalTitle !== movie.title ? movie.originalTitle : null, movie.year, formatRuntime(movie.runtimeMinutes)].filter(Boolean).join(" · ")}
             </p>
+            <Credits movie={movie} />
             {movie.genres.length > 0 && (
               <ul className="flex flex-wrap gap-2" aria-label="Géneros">
                 {movie.genres.map((g) => (

@@ -1,3 +1,5 @@
+import type { Avatar } from "./avatar";
+
 export type OfferType = "flatrate" | "free" | "ads" | "rent" | "buy";
 
 export interface StreamingOffer {
@@ -49,6 +51,10 @@ export interface Movie extends MovieData {
   favorite: boolean;
   source: "auto" | "manual";
   lastSyncedAt: string | null;
+  /** Profile ids; null on movies saved before profiles existed (or when the person left). */
+  addedBy: string | null;
+  suggestedBy: string | null;
+  updatedBy: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -74,8 +80,40 @@ export interface CalendarState {
   surprise: boolean;
 }
 
-export interface Settings {
-  displayName: string;
+/** Serializable profile handed to client components. */
+export interface Profile {
+  id: string;
+  name: string;
+  avatar: Avatar;
+}
+
+export interface HomeInfo {
+  id: string;
+  slug: string;
+  name: string;
+}
+
+export interface AdminHome extends HomeInfo {
+  profiles: number;
+  movies: number;
+  createdAt: string;
+  lastActiveAt: string;
+}
+
+export interface AdminInvite {
+  /** Shown as NAVI-XXXX-XXXX. */
+  code: string;
+  createdAt: string;
+  expiresAt: string;
+  status: "open" | "used" | "expired";
+  /** Code of the home that redeemed it, when it still exists. */
+  usedBySlug: string | null;
+}
+
+export interface AdminOverview {
+  cap: number;
+  homes: AdminHome[];
+  invites: AdminInvite[];
 }
 
 export type ActionResult<T = undefined> =
