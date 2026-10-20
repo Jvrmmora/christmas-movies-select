@@ -4,12 +4,15 @@ import { ObjectId } from "mongodb";
 import { refresh } from "next/cache";
 import { collections, type MovieDoc } from "@/lib/db";
 import { seasonFor } from "@/lib/calendar";
+import { LIMITS, RATE_RULES } from "@/lib/limits";
+import { tooManyAttempts } from "@/lib/rate-limit";
+import { limiter } from "@/lib/rate-limit-store";
 import { enrich, fetchLatest, lookupMovie } from "@/lib/metadata";
 import { getLibraryIndex } from "@/lib/library";
 import { findInLibrary } from "@/lib/library-match";
 import { firstIssue, movieInputSchema, type MovieInput, type MovieInputParsed } from "@/lib/validation";
 import type { ActionResult, Candidate } from "@/lib/types";
-import { errorMessage, requireOwner } from "./guard";
+import { errorMessage, requireOwner, requireProfile } from "./guard";
 
 function oid(id: string): ObjectId {
   if (!ObjectId.isValid(id)) throw new Error("Película no encontrada");
@@ -17,11 +20,20 @@ function oid(id: string): ObjectId {
 }
 
 function toDocFields(input: MovieInputParsed) {
-  const { calendarDate: _calendarDate, ...rest } = input;
+  // suggestedBy is resolved separately: undefined must mean "leave as is", not "set to null".
+  const { calendarDate: _calendarDate, suggestedBy: _suggestedBy, ...rest } = input;
   return {
     ...rest,
     watchedAt: input.watched ? new Date() : null,
   };
+}
+
+const FULL_LIBRARY = `Tu casa llegó al máximo de ${LIMITS.moviesPerHome} películas. Elimina alguna para agregar más.`;
+
+/** The profile that suggested a movie must belong to this very home. */
+async function profileInHome(ownerId: string, profileId: string): Promise<boolean> {
+  const { profiles } = await collections();
+  return (await profiles.countDocuments({ _id: profileId, homeId: ownerId }, { limit: 1 })) > 0;
 }
 
 async function assignToCalendar(ownerId: string, movieId: string, date: string | null | undefined) {
@@ -47,6 +59,9 @@ export async function searchMoviesAction(title: string, year?: number, ignoreId?
     const ownerId = await requireOwner();
     const q = String(title ?? "").trim().slice(0, 200);
     if (!q) return { ok: false, error: "Escribe el nombre de la película" };
+    // Every search hits JustWatch (and OMDb, whose free key is small), so each home gets an hourly budget.
+    const budget = await limiter.hit(`search:${ownerId}`, RATE_RULES.search);
+    if (!budget.allowed) return { ok: false, error: tooManyAttempts(budget.resetsAt) };
     const y = year && Number.isInteger(year) && year > 1880 && year < 2100 ? year : undefined;
     const [candidates, library] = await Promise.all([lookupMovie(q, y), getLibraryIndex(ownerId)]);
     // Flag what is already in the library so the form can block it.
@@ -59,17 +74,23 @@ export async function searchMoviesAction(title: string, year?: number, ignoreId?
 
 export async function createMovieAction(raw: MovieInput): Promise<ActionResult<{ id: string }>> {
   try {
-    const ownerId = await requireOwner();
+    const { ownerId, profileId } = await requireProfile();
     const parsed = movieInputSchema.safeParse(raw);
     if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
+    const { movies } = await collections();
+    if ((await movies.countDocuments({ ownerId })) >= LIMITS.moviesPerHome) return { ok: false, error: FULL_LIBRARY };
     const dup = findInLibrary(await getLibraryIndex(ownerId), parsed.data);
     if (dup) return { ok: false, error: `Ya lo tienes en tu biblioteca: «${dup.title}».` };
+    const suggestedBy = parsed.data.suggestedBy === undefined ? profileId : parsed.data.suggestedBy;
+    if (suggestedBy && !(await profileInHome(ownerId, suggestedBy))) return { ok: false, error: "Ese perfil ya no existe." };
     const input = await enrich(parsed.data);
     const now = new Date();
-    const { movies } = await collections();
     const doc: Omit<MovieDoc, "_id"> = {
       ...toDocFields(input),
       ownerId,
+      addedBy: profileId,
+      suggestedBy,
+      updatedBy: profileId,
       lastSyncedAt: input.source === "auto" ? now : null,
       createdAt: now,
       updatedAt: now,
@@ -86,7 +107,7 @@ export async function createMovieAction(raw: MovieInput): Promise<ActionResult<{
 
 export async function updateMovieAction(id: string, raw: MovieInput): Promise<ActionResult> {
   try {
-    const ownerId = await requireOwner();
+    const { ownerId, profileId } = await requireProfile();
     const parsed = movieInputSchema.safeParse(raw);
     if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
     const { movies } = await collections();
@@ -95,7 +116,12 @@ export async function updateMovieAction(id: string, raw: MovieInput): Promise<Ac
     const fields = toDocFields(parsed.data);
     // Keep the original "watched" date when it stays watched.
     if (current.watched && fields.watched) fields.watchedAt = current.watchedAt;
-    await movies.updateOne({ _id: current._id }, { $set: { ...fields, updatedAt: new Date() } });
+    const { suggestedBy } = parsed.data;
+    if (suggestedBy && !(await profileInHome(ownerId, suggestedBy))) return { ok: false, error: "Ese perfil ya no existe." };
+    await movies.updateOne(
+      { _id: current._id },
+      { $set: { ...fields, ...(suggestedBy !== undefined && { suggestedBy }), updatedBy: profileId, updatedAt: new Date() } },
+    );
     await assignToCalendar(ownerId, id, parsed.data.calendarDate);
     refresh();
     return { ok: true };
@@ -125,11 +151,15 @@ export async function deleteMovieAction(id: string): Promise<ActionResult> {
   }
 }
 
-async function patchMovie(id: string, set: Partial<MovieDoc>): Promise<ActionResult> {
+/** `stamp` records who made the change; plain toggles (watched, favorite, rating) don't count as edits. */
+async function patchMovie(id: string, set: Partial<MovieDoc>, stamp = false): Promise<ActionResult> {
   try {
-    const ownerId = await requireOwner();
+    const { ownerId, profileId } = stamp ? await requireProfile() : { ownerId: await requireOwner(), profileId: null };
     const { movies } = await collections();
-    const res = await movies.updateOne({ _id: oid(id), ownerId }, { $set: { ...set, updatedAt: new Date() } });
+    const res = await movies.updateOne(
+      { _id: oid(id), ownerId },
+      { $set: { ...set, ...(profileId && { updatedBy: profileId }), updatedAt: new Date() } },
+    );
     if (!res.matchedCount) return { ok: false, error: "Película no encontrada" };
     refresh();
     return { ok: true };
@@ -152,7 +182,7 @@ export async function setMyRatingAction(id: string, rating: number | null): Prom
 }
 
 export async function setNotesAction(id: string, notes: string): Promise<ActionResult> {
-  return patchMovie(id, { notes: String(notes ?? "").trim().slice(0, 2000) });
+  return patchMovie(id, { notes: String(notes ?? "").trim().slice(0, 2000) }, true);
 }
 
 /** Re-fetches ratings, artwork and Colombian availability. Keeps the user's title and notes. */
@@ -191,14 +221,20 @@ export async function refreshMetadataAction(id: string): Promise<ActionResult> {
 
 export async function importMoviesAction(items: MovieInput[]): Promise<ActionResult<{ created: number; skipped: string[] }>> {
   try {
-    const ownerId = await requireOwner();
+    const { ownerId, profileId } = await requireProfile();
     if (!Array.isArray(items) || !items.length) return { ok: false, error: "No hay películas para importar" };
     if (items.length > 100) return { ok: false, error: "Máximo 100 películas por importación" };
     const { movies } = await collections();
     const library = await getLibraryIndex(ownerId);
+    let room = LIMITS.moviesPerHome - (await movies.countDocuments({ ownerId }));
+    if (room <= 0) return { ok: false, error: FULL_LIBRARY };
     let created = 0;
     const skipped: string[] = [];
     for (const raw of items) {
+      if (room <= 0) {
+        skipped.push(`${String(raw?.title ?? "?")}: la casa llegó al máximo de ${LIMITS.moviesPerHome} películas`);
+        continue;
+      }
       const parsed = movieInputSchema.safeParse(raw);
       if (!parsed.success) {
         skipped.push(`${String(raw?.title ?? "?")}: ${firstIssue(parsed.error)}`);
@@ -215,11 +251,15 @@ export async function importMoviesAction(items: MovieInput[]): Promise<ActionRes
         await movies.insertOne({
           ...toDocFields(input),
           ownerId,
+          addedBy: profileId,
+          suggestedBy: profileId,
+          updatedBy: profileId,
           lastSyncedAt: input.source === "auto" ? now : null,
           createdAt: now,
           updatedAt: now,
         } as MovieDoc);
         created++;
+        room--;
       } catch (err) {
         skipped.push(`${input.title} (${input.year}): ${errorMessage(err)}`);
       }

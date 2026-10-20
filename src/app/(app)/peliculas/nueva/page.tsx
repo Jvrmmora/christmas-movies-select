@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { MovieForm } from "@/components/movies/movie-form";
 import { Bone } from "@/components/skeletons";
-import { getCalendar } from "@/lib/dal";
+import { ProfilesProvider } from "@/components/profiles/profiles-provider";
+import { getCalendar, getProfileContext } from "@/lib/dal";
 
 export const metadata: Metadata = { title: "Agregar película" };
 
@@ -17,6 +18,10 @@ export default function NewMoviePage() {
 }
 
 async function NewMovie() {
-  const calendar = await getCalendar();
-  return <MovieForm calendar={calendar} />;
+  const [calendar, ctx] = await Promise.all([getCalendar(), getProfileContext()]);
+  return (
+    <ProfilesProvider {...ctx}>
+      <MovieForm calendar={calendar} />
+    </ProfilesProvider>
+  );
 }

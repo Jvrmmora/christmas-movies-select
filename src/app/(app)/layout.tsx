@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { BrandMark, Garland, Snowfall } from "@/components/shell/decor";
 import { SiteFooter } from "@/components/shell/footer";
 import { HeaderActions, NavLinks, NavLinksView, TabBar, TabBarView } from "@/components/shell/nav";
+import { getCurrentProfile, getHome } from "@/lib/dal";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -17,7 +18,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <Suspense fallback={<NavLinksView pathname={null} />}>
             <NavLinks />
           </Suspense>
-          <HeaderActions />
+          <Suspense fallback={<HeaderActions profile={null} home={null} />}>
+            <HeaderActionsLoader />
+          </Suspense>
         </div>
         <Garland />
       </header>
@@ -30,4 +33,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </Suspense>
     </div>
   );
+}
+
+async function HeaderActionsLoader() {
+  const [profile, home] = await Promise.all([getCurrentProfile(), getHome()]);
+  return <HeaderActions profile={profile} home={home} />;
 }

@@ -1,7 +1,8 @@
 import { Suspense } from "react";
 import { DashboardView } from "@/components/dashboard/dashboard-view";
 import { DashboardSkeleton } from "@/components/skeletons";
-import { getCalendar, getMovies, getSettings } from "@/lib/dal";
+import { ProfilesProvider } from "@/components/profiles/profiles-provider";
+import { getCalendar, getMovies, getProfileContext } from "@/lib/dal";
 
 export default function HomePage() {
   return (
@@ -14,6 +15,10 @@ export default function HomePage() {
 }
 
 async function Dashboard() {
-  const [movies, calendar, settings] = await Promise.all([getMovies(), getCalendar(), getSettings()]);
-  return <DashboardView movies={movies} calendar={calendar} displayName={settings.displayName} />;
+  const [movies, calendar, ctx] = await Promise.all([getMovies(), getCalendar(), getProfileContext()]);
+  return (
+    <ProfilesProvider {...ctx}>
+      <DashboardView movies={movies} calendar={calendar} />
+    </ProfilesProvider>
+  );
 }
