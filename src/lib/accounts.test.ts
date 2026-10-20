@@ -1,17 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { hashSecret, verifySecret } from "./password";
-import {
-  formatInviteCode,
-  formatRecoveryCode,
-  generateInviteCode,
-  generateRecoveryCode,
-  inviteExpiry,
-  normalizeInviteCode,
-  normalizeRecoveryCode,
-} from "./invite";
-import { DEFAULT_HOME_CAP, homeCap, inactiveCutoff, LIMITS } from "./limits";
+import { formatRecoveryCode, generateRecoveryCode, normalizeRecoveryCode, randomSlugSuffix } from "./recovery-code";
+import { DEFAULT_HOME_CAP, homeCap, inactiveCutoff, RATE_RULES } from "./limits";
 import { splitDisplayName } from "./display-name";
-import { slugify } from "./slug";
+import { homeSlugFromName, slugCandidates, slugify } from "./slug";
 import { CHARACTERS, starterAvatar, BACKGROUND_IDS } from "./avatar";
 import { avatarSchema, homeInputSchema, homeSlugSchema, profileInputSchema } from "./validation";
 
@@ -36,42 +28,44 @@ describe("password hashing", () => {
   });
 });
 
-describe("invite and recovery codes", () => {
-  it("generates 8-symbol invites without look-alike characters", () => {
-    for (let i = 0; i < 200; i++) {
-      const code = generateInviteCode();
-      expect(code).toMatch(/^[A-HJ-NP-Z2-9]{8}$/);
-    }
-  });
-
-  it("formats as NAVI-XXXX-XXXX and normalizes every way people type it", () => {
-    const code = "7K2Q9XM4";
-    expect(formatInviteCode(code)).toBe("NAVI-7K2Q-9XM4");
-    for (const typed of ["NAVI-7K2Q-9XM4", "navi-7k2q-9xm4", " 7k2q 9xm4 ", "7K2Q9XM4", "navi7k2q9xm4"]) {
-      expect(normalizeInviteCode(typed)).toBe(code);
-    }
-  });
-
-  it("rejects codes that can't exist", () => {
-    expect(normalizeInviteCode("")).toBeNull();
-    expect(normalizeInviteCode("7K2Q9XM")).toBeNull(); // too short
-    expect(normalizeInviteCode("7K2Q9XM45")).toBeNull(); // too long
-    expect(normalizeInviteCode("7K2Q9XM0")).toBeNull(); // 0 is not in the alphabet
-    expect(normalizeInviteCode("7K2Q9XMO")).toBeNull(); // O is not in the alphabet
-  });
-
-  it("expires invites after the configured days", () => {
-    const from = new Date("2026-11-01T00:00:00Z");
-    const days = (inviteExpiry(from).getTime() - from.getTime()) / 86_400_000;
-    expect(days).toBe(LIMITS.inviteTtlDays);
-  });
-
+describe("recovery codes", () => {
   it("round-trips 16-symbol recovery codes", () => {
     const code = generateRecoveryCode();
     expect(code).toHaveLength(16);
+    expect(code).toMatch(/^[A-HJ-NP-Z2-9]{16}$/);
     expect(formatRecoveryCode(code)).toMatch(/^(\w{4}-){3}\w{4}$/);
     expect(normalizeRecoveryCode(formatRecoveryCode(code).toLowerCase())).toBe(code);
-    expect(normalizeInviteCode(code)).toBeNull();
+  });
+
+  it("rejects codes that can't exist", () => {
+    expect(normalizeRecoveryCode("")).toBeNull();
+    expect(normalizeRecoveryCode("7K2Q-9XM4")).toBeNull(); // too short
+    expect(normalizeRecoveryCode("7K2Q-9XM4-HB3T-PL80")).toBeNull(); // 0 is not in the alphabet
+  });
+});
+
+describe("home codes for open sign-up", () => {
+  it("suggests a valid code from any name", () => {
+    expect(homeSlugFromName("Casa Montaño")).toBe("casa-montano");
+    expect(homeSlugFromName("Yo")).toBe("casa-yo");
+    expect(homeSlugFromName("🎄")).toBe("casa");
+    for (const name of ["Casa Montaño", "Yo", "🎄", "La familia Gómez-Rodríguez de la Montaña"]) {
+      expect(homeSlugSchema.safeParse(homeSlugFromName(name)).success).toBe(true);
+    }
+  });
+
+  it("tries the code, then -2 … -9, then random endings, all valid", () => {
+    const list = slugCandidates("casa-montano", () => "k7q");
+    expect(list.slice(0, 3)).toEqual(["casa-montano", "casa-montano-2", "casa-montano-3"]);
+    expect(list[8]).toBe("casa-montano-9");
+    expect(list.at(-1)).toBe("casa-montano-k7q");
+    const long = slugCandidates("a".repeat(24), randomSlugSuffix);
+    for (const slug of [...list, ...long]) expect(homeSlugSchema.safeParse(slug).success).toBe(true);
+    expect(new Set(list).size).toBe(list.length - 2); // the fixed random stub repeats; real suffixes vary
+  });
+
+  it("random endings use 3 easy-to-read characters", () => {
+    for (let i = 0; i < 100; i++) expect(randomSlugSuffix()).toMatch(/^[a-hj-km-np-z2-9]{3}$/);
   });
 });
 
@@ -84,6 +78,11 @@ describe("limits", () => {
     expect(homeCap("-3")).toBe(DEFAULT_HOME_CAP);
     expect(homeCap("mucho")).toBe(DEFAULT_HOME_CAP);
     expect(homeCap("2.5")).toBe(DEFAULT_HOME_CAP);
+  });
+
+  it("allows a few new homes per connection per day", () => {
+    expect(DEFAULT_HOME_CAP).toBe(200);
+    expect(RATE_RULES.signup).toEqual({ max: 3, windowMs: 24 * 60 * 60 * 1000 });
   });
 });
 

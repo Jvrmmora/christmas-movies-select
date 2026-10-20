@@ -19,7 +19,7 @@ async function AdminContent() {
   const overview = await getAdminOverview();
   if (!overview) {
     return (
-      <AuthShell title="Administración" subtitle="Invitaciones y casas de Navidad en casa.">
+      <AuthShell title="Administración" subtitle="Casas de Navidad en casa.">
         <AdminLogin />
       </AuthShell>
     );

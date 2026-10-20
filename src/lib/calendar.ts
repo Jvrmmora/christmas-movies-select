@@ -25,12 +25,15 @@ export function seasonEnd(season: number): string {
 
 export const PRESETS: { key: RangePreset; label: string }[] = [
   { key: "today", label: "Desde hoy" },
-  { key: "oct", label: "1 oct" },
-  { key: "nov", label: "1 nov" },
-  { key: "dec", label: "1 dic" },
-  { key: "novena", label: "Novena" },
+  { key: "nov", label: "1 de noviembre" },
+  { key: "dec", label: "1 de diciembre" },
   { key: "custom", label: "Personalizado" },
 ];
+
+/** Older calendars may still say "oct" or "novena": they keep their start date as a custom range. */
+export function normalizePreset(raw: string | null | undefined): RangePreset {
+  return raw === "today" || raw === "nov" || raw === "dec" || raw === "custom" ? raw : "custom";
+}
 
 export function presetStart(preset: RangePreset, season: number, today: Date, custom?: string): string {
   const end = seasonEnd(season);
@@ -39,17 +42,11 @@ export function presetStart(preset: RangePreset, season: number, today: Date, cu
     case "today":
       start = toKey(today);
       break;
-    case "oct":
-      start = `${season}-10-01`;
-      break;
     case "nov":
       start = `${season}-11-01`;
       break;
     case "dec":
       start = `${season}-12-01`;
-      break;
-    case "novena":
-      start = `${season}-12-16`;
       break;
     default:
       start = custom && DATE_KEY.test(custom) ? custom : `${season}-11-15`;

@@ -3,10 +3,9 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { ObjectId } from "mongodb";
 import { readAdminSession, readProfileSession, readSession } from "./session";
-import { formatInviteCode } from "./invite";
 import { homeCap } from "./limits";
 import { collections, type CalendarDoc, type MovieDoc, type ProfileDoc } from "./db";
-import { presetStart, seasonEnd, seasonFor } from "./calendar";
+import { normalizePreset, presetStart, seasonEnd, seasonFor } from "./calendar";
 import type { AdminOverview, CalendarState, HomeInfo, Movie, Profile } from "./types";
 
 /**
@@ -113,6 +112,7 @@ export function defaultCalendar(season: number): CalendarState {
     endDate: seasonEnd(season),
     assignments: {},
     surprise: false,
+    configured: false,
   };
 }
 
@@ -120,11 +120,13 @@ export function toCalendar(doc: CalendarDoc | null, season: number): CalendarSta
   if (!doc) return defaultCalendar(season);
   return {
     season: doc.season,
-    preset: doc.preset,
+    preset: normalizePreset(doc.preset),
     startDate: doc.startDate,
     endDate: doc.endDate,
     assignments: doc.assignments ?? {},
     surprise: !!doc.surprise,
+    // Calendars from before the range picker count as set up once they have any movie on a day.
+    configured: !!doc.configuredAt || Object.keys(doc.assignments ?? {}).length > 0,
   };
 }
 
@@ -138,18 +140,15 @@ export const getCalendar = cache(async (): Promise<CalendarState> => {
 /** Everything the admin panel shows; null when this browser has no admin session. */
 export const getAdminOverview = cache(async (): Promise<AdminOverview | null> => {
   if (!(await readAdminSession())) return null;
-  const { homes, profiles, movies, invites } = await collections();
-  const [homeDocs, profileCounts, movieCounts, inviteDocs] = await Promise.all([
+  const { homes, profiles, movies } = await collections();
+  const [homeDocs, profileCounts, movieCounts] = await Promise.all([
     homes.find({}, { projection: { passwordHash: 0, recoveryHash: 0 } }).sort({ createdAt: 1 }).toArray(),
     profiles.aggregate<{ _id: string; n: number }>([{ $group: { _id: "$homeId", n: { $sum: 1 } } }]).toArray(),
     movies.aggregate<{ _id: string; n: number }>([{ $group: { _id: "$ownerId", n: { $sum: 1 } } }]).toArray(),
-    invites.find({}).sort({ createdAt: -1 }).limit(50).toArray(),
   ]);
   const count = (rows: { _id: string; n: number }[]) => new Map(rows.map((r) => [r._id, r.n]));
   const profilesBy = count(profileCounts);
   const moviesBy = count(movieCounts);
-  const slugById = new Map(homeDocs.map((h) => [h._id, h.slug]));
-  const now = Date.now();
   return {
     cap: homeCap(),
     homes: homeDocs.map((h) => ({
@@ -160,13 +159,6 @@ export const getAdminOverview = cache(async (): Promise<AdminOverview | null> =>
       movies: moviesBy.get(h._id) ?? 0,
       createdAt: h.createdAt.toISOString(),
       lastActiveAt: h.lastActiveAt.toISOString(),
-    })),
-    invites: inviteDocs.map((i) => ({
-      code: formatInviteCode(i._id),
-      createdAt: i.createdAt.toISOString(),
-      expiresAt: i.expiresAt.toISOString(),
-      status: i.usedAt ? "used" : i.expiresAt.getTime() <= now ? "expired" : "open",
-      usedBySlug: i.usedByHomeId ? (slugById.get(i.usedByHomeId) ?? null) : null,
     })),
   };
 });

@@ -51,8 +51,8 @@ export function DashboardView({ movies, calendar }: { movies: Movie[]; calendar:
   if (!movies.length) return <EmptyWelcome />;
 
   return (
-    <div className="flex flex-col gap-12">
-      <section className="flex flex-wrap items-stretch gap-6">
+    <div className="flex flex-col gap-10">
+      <section className="flex flex-wrap items-stretch gap-5">
         <GreetingCard now={now} pendingCount={pending.length} hasToday={!!todayMovie} />
         <ProgressCard watched={watchedCount} total={movies.length} pending={pending.length} hours={pendingHours} season={calendar.season} />
       </section>
@@ -60,7 +60,7 @@ export function DashboardView({ movies, calendar }: { movies: Movie[]; calendar:
       {todayMovie ? (
         <TodayCard movie={todayMovie} watched={isWatched(todayMovie.id)} onToggle={() => toggle(todayMovie.id)} dateLabel={now ? dayFmt.format(now) : ""} />
       ) : (
-        <CalendarNudge hasAssignments={assigned.length > 0} />
+        <CalendarNudge configured={calendar.configured} hasAssignments={assigned.length > 0} />
       )}
 
       {upcoming.length > 0 && (
@@ -121,7 +121,7 @@ function SectionHead({ id, title, href, link }: { id: string; title: string; hre
 function PeriodIcon({ hour }: { hour: number }) {
   const period = periodFor(hour);
   const Icon = period === "morning" ? Sun : period === "afternoon" ? Sunset : Moon;
-  return <Icon className="size-[18px]" strokeWidth={1.8} aria-hidden />;
+  return <Icon className="size-[15px] text-gold-ink" strokeWidth={1.8} aria-hidden />;
 }
 
 function GreetingCard({ now, pendingCount, hasToday }: { now: Date | null; pendingCount: number; hasToday: boolean }) {
@@ -129,81 +129,81 @@ function GreetingCard({ now, pendingCount, hasToday }: { now: Date | null; pendi
   const cast = CAST[current.avatar.character];
   const cd = now ? countdownTo(now) : null;
   const greeting = now ? GREETING[periodFor(now.getHours())] : " ";
+  const status =
+    pendingCount === 0
+      ? "Ya vieron todas las películas. ¡Qué temporada!"
+      : `${pendingCount} ${pendingCount === 1 ? "película pendiente" : "películas pendientes"}${hasToday ? " · la de hoy ya está lista" : ""}`;
 
   return (
-    <div className="nv-fade relative min-w-0 flex-[999_1_560px] overflow-hidden rounded-[28px] bg-surface p-7 shadow-card sm:p-10">
-      <svg width="260" height="260" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="0.6" strokeLinecap="round" aria-hidden className="absolute -top-12 -right-12 text-gold-soft">
+    <div className="nv-fade relative flex min-w-0 flex-[999_1_560px] flex-col gap-6 overflow-hidden rounded-3xl bg-surface p-6 shadow-card sm:p-7">
+      <svg width="150" height="150" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="0.5" strokeLinecap="round" aria-hidden className="absolute -top-7 -right-7 text-gold-soft">
         <path d="M12 2v20M3.34 7l17.32 10M3.34 17 20.66 7M12 2l-2 2.5M12 2l2 2.5M12 22l-2-2.5M12 22l2-2.5M3.34 7l3.1.3M3.34 7l1.3 2.9M20.66 17l-3.1-.3M20.66 17l-1.3-2.9M3.34 17l3.1-.3M3.34 17l1.3-2.9M20.66 7l-3.1.3M20.66 7l-1.3 2.9" />
       </svg>
-      <div className="relative flex items-center gap-4">
+      <div className="relative flex items-center gap-3.5">
         <Link href="/perfiles" aria-label={`Eres ${current.name}. Cambiar de perfil`} title="Cambiar de perfil" className="nv-av-host nv-press shrink-0 rounded-full ring-2 ring-line transition-shadow hover:ring-gold">
-          <Avatar avatar={current.avatar} size={64} animated />
+          <Avatar avatar={current.avatar} size={48} animated />
         </Link>
         <div className="min-w-0">
-          <div className="flex min-h-5 items-center gap-2 text-[13px] font-semibold tracking-[0.06em] text-gold-ink uppercase">
+          <h1 className="font-display text-[clamp(26px,3.2vw,38px)] leading-[1.08] font-bold tracking-[-0.035em]">
+            {greeting}
+            {now ? <span className="text-berry-ink">, {current.name}</span> : null}
+          </h1>
+          <p className="mt-0.5 flex min-h-5 flex-wrap items-center gap-x-1.5 text-sm text-ink-2">
             {now && <PeriodIcon hour={now.getHours()} />}
             <span>{now ? capitalize(dayFmt.format(now)) : ""}</span>
-          </div>
-          <p className="mt-1 text-[15px] text-ink-2 italic">
-            {cast.name}: «{cast.phrase}»
+            <span aria-hidden>·</span>
+            <span>{status}</span>
           </p>
         </div>
       </div>
-      <h1 className="relative mt-5 font-serif text-[clamp(40px,5.6vw,72px)] leading-[1.02] font-semibold tracking-[-0.025em]">
-        {greeting}
-        {now ? <span className="text-berry-ink">, {current.name}</span> : null}
-      </h1>
-      <p className="relative mt-4 max-w-[520px] text-lg leading-normal text-ink-2 sm:text-[19px]">
-        {pendingCount === 0
-          ? "Ya vieron todas las películas de la lista. ¡Qué temporada!"
-          : `Tienen ${pendingCount} ${pendingCount === 1 ? "película pendiente" : "películas pendientes"}${hasToday ? " y la de hoy ya está lista en el calendario." : "."}`}
-      </p>
-      <div className="relative mt-8">
-        <ChristmasCountdown parts={cd} />
+      <div className="relative border-t border-line pt-5">
+        <ChristmasCountdown parts={cd} note={`${cast.name}: «${cast.phrase}»`} />
       </div>
     </div>
   );
 }
 
 function ProgressCard({ watched, total, pending, hours, season }: { watched: number; total: number; pending: number; hours: number; season: number }) {
-  const C = 2 * Math.PI * 78;
+  const C = 2 * Math.PI * 44;
   const dash = total ? (watched / total) * C : 0;
   return (
-    <div className="nv-fade flex flex-[1_1_300px] flex-col items-center gap-6 self-start rounded-[28px] bg-surface p-8 shadow-card" style={{ animationDelay: "0.08s" }}>
-      <div className="flex items-center justify-between self-stretch">
-        <h2 className="text-[17px] font-semibold">Su progreso</h2>
-        <span className="text-[13px] text-ink-2">Temporada {season}</span>
+    <div className="nv-fade flex flex-[1_1_280px] flex-col gap-4 rounded-3xl bg-surface p-6 shadow-card" style={{ animationDelay: "0.08s" }}>
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="text-base font-semibold">Su progreso</h2>
+        <span className="text-xs text-ink-2">Temporada {season}</span>
       </div>
-      <div className="relative size-[184px]">
-        <svg width="184" height="184" viewBox="0 0 184 184" aria-hidden className="-rotate-90">
-          <circle cx="92" cy="92" r="78" fill="none" strokeWidth="14" style={{ stroke: "var(--surface-2)" }} />
-          <circle
-            cx="92"
-            cy="92"
-            r="78"
-            fill="none"
-            strokeWidth="14"
-            strokeLinecap="round"
-            strokeDasharray={`${dash} ${C}`}
-            style={{ stroke: "var(--check)", opacity: watched ? 1 : 0, transition: "stroke-dasharray .6s cubic-bezier(.2,.8,.2,1), opacity .3s" }}
-          />
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center" role="img" aria-label={`${watched} de ${total} vistas`}>
-          <div className="text-[44px] leading-none font-bold tracking-[-0.03em] tabular-nums">
-            {watched}
-            <span className="text-[22px] font-semibold text-ink-2">/{total}</span>
+      <div className="flex items-center gap-5">
+        <div className="relative size-[104px] shrink-0">
+          <svg width="104" height="104" viewBox="0 0 104 104" aria-hidden className="-rotate-90">
+            <circle cx="52" cy="52" r="44" fill="none" strokeWidth="10" style={{ stroke: "var(--surface-2)" }} />
+            <circle
+              cx="52"
+              cy="52"
+              r="44"
+              fill="none"
+              strokeWidth="10"
+              strokeLinecap="round"
+              strokeDasharray={`${dash} ${C}`}
+              style={{ stroke: "var(--check)", opacity: watched ? 1 : 0, transition: "stroke-dasharray .6s cubic-bezier(.2,.8,.2,1), opacity .3s" }}
+            />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center" role="img" aria-label={`${watched} de ${total} vistas`}>
+            <div className="font-display text-[26px] leading-none font-bold tracking-[-0.03em] tabular-nums">
+              {watched}
+              <span className="text-sm font-semibold text-ink-2">/{total}</span>
+            </div>
+            <div className="mt-1 text-[11px] text-ink-2">vistas</div>
           </div>
-          <div className="mt-1.5 text-sm text-ink-2">vistas</div>
         </div>
-      </div>
-      <div className="grid grid-cols-2 gap-2.5 self-stretch">
-        <div className="rounded-2xl bg-pine-soft p-3.5">
-          <div className="text-[22px] font-bold text-pine tabular-nums">{pending}</div>
-          <div className="text-[13px] text-ink-2">pendientes</div>
-        </div>
-        <div className="rounded-2xl bg-berry-soft p-3.5">
-          <div className="text-[22px] font-bold text-berry-ink tabular-nums">≈ {hours}</div>
-          <div className="text-[13px] text-ink-2">horas por ver</div>
+        <div className="grid flex-1 gap-2">
+          <div className="rounded-xl bg-pine-soft px-3 py-2.5">
+            <div className="text-lg leading-tight font-bold text-pine tabular-nums">{pending}</div>
+            <div className="text-xs text-ink-2">pendientes</div>
+          </div>
+          <div className="rounded-xl bg-berry-soft px-3 py-2.5">
+            <div className="text-lg leading-tight font-bold text-berry-ink tabular-nums">≈ {hours} h</div>
+            <div className="text-xs text-ink-2">por ver</div>
+          </div>
         </div>
       </div>
     </div>
@@ -257,22 +257,21 @@ function TodayCard({ movie, watched, onToggle, dateLabel }: { movie: Movie; watc
   );
 }
 
-function CalendarNudge({ hasAssignments }: { hasAssignments: boolean }) {
+function CalendarNudge({ configured, hasAssignments }: { configured: boolean; hasAssignments: boolean }) {
+  const setUp = !configured && !hasAssignments;
   return (
-    <section className="nv-fade flex flex-wrap items-center gap-6 rounded-[28px] bg-surface p-7 shadow-card sm:p-10" style={{ animationDelay: "0.14s" }}>
-      <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-gold-soft text-gold-ink">
-        <CalendarDays className="size-7" strokeWidth={1.6} aria-hidden />
+    <section className="nv-fade flex flex-wrap items-center gap-4 rounded-[20px] bg-surface p-5 shadow-card sm:px-6" style={{ animationDelay: "0.14s" }}>
+      <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-gold-soft text-gold-ink">
+        <CalendarDays className="size-5" strokeWidth={1.8} aria-hidden />
       </span>
-      <div className="min-w-0 flex-[1_1_320px]">
-        <h2 className="text-[22px] font-bold tracking-[-0.02em]">{hasAssignments ? "Hoy no hay película en el calendario" : "Armen su calendario de adviento"}</h2>
-        <p className="mt-1 text-base text-ink-2">
-          {hasAssignments
-            ? "Pueden elegir una de la lista o poner una película en el día de hoy."
-            : "Elijan desde qué fecha empezar y repartan las películas, una por día hasta Nochebuena."}
+      <div className="min-w-0 flex-[1_1_260px]">
+        <h2 className="text-base font-semibold">{setUp ? "Armen su calendario de adviento" : "Hoy no hay película en el calendario"}</h2>
+        <p className="mt-0.5 text-sm text-ink-2">
+          {setUp ? "Elijan desde cuándo empezar: una película por día hasta Nochebuena." : "Elijan una de la lista o pongan una para hoy."}
         </p>
       </div>
-      <Link href="/calendario" className="nv-press inline-flex h-12 items-center rounded-[14px] bg-pine px-5 text-[15px] font-semibold text-white">
-        Ir al calendario
+      <Link href={setUp ? "/calendario/rango" : "/calendario"} className="nv-press inline-flex h-10 items-center rounded-full bg-pine px-4 text-sm font-semibold text-white">
+        {setUp ? "Empezar" : "Ir al calendario"}
       </Link>
     </section>
   );
@@ -284,7 +283,7 @@ function EmptyWelcome() {
   const { current } = useProfiles();
   return (
     <section className="nv-fade mx-auto flex max-w-2xl flex-col items-center gap-5 rounded-[28px] bg-surface px-6 py-16 text-center shadow-card">
-      <h1 className="font-serif text-5xl font-semibold tracking-[-0.025em]">
+      <h1 className="font-display text-5xl font-bold tracking-[-0.035em]">
         {now ? GREETING[periodFor(now.getHours())] : "Hola"}
         {now ? `, ${current.name}` : ""}
       </h1>

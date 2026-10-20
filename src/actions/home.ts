@@ -3,93 +3,85 @@
 import { randomUUID } from "node:crypto";
 import { clientIp } from "@/lib/client-ip";
 import { collections } from "@/lib/db";
-import { formatRecoveryCode, generateRecoveryCode, normalizeInviteCode, normalizeRecoveryCode } from "@/lib/invite";
+import { formatRecoveryCode, generateRecoveryCode, normalizeRecoveryCode, randomSlugSuffix } from "@/lib/recovery-code";
 import { homeCap, RATE_RULES } from "@/lib/limits";
 import { hashSecret, verifySecret } from "@/lib/password";
 import { tooManyAttempts } from "@/lib/rate-limit";
 import { limiter } from "@/lib/rate-limit-store";
 import { createSession } from "@/lib/session";
+import { homeSlugFromName, slugCandidates } from "@/lib/slug";
 import { firstIssue, homeInputSchema, homePasswordSchema, homeSlugSchema } from "@/lib/validation";
 
 /** The recovery code is returned once and only its hash is kept, so there is no way to show it again. */
 export interface HomeFormState {
   error?: string;
   recoveryCode?: string;
+  /** The code the family will type to sign in (may differ from the suggestion if that one was taken). */
+  slug?: string;
 }
 
-const BAD_INVITE = "Ese código de invitación no es válido, ya se usó o venció.";
+const FULL = "Por ahora no hay lugar para más casas. Intenten más tarde.";
+const TAKEN = "Ese código de casa ya lo usa otra familia. Prueba con otro.";
 
+const isDuplicate = (err: unknown) => !!err && typeof err === "object" && "code" in err && err.code === 11000;
+
+/**
+ * Open sign-up: name + password. The home code is suggested from the name; when the person kept the
+ * suggestion and it is taken, the next free variant is used (casa-montano-2 …). Protected by a per-IP
+ * daily limit and the global HOME_CAP.
+ */
 export async function createHomeAction(_prev: HomeFormState, formData: FormData): Promise<HomeFormState> {
+  const name = String(formData.get("name") ?? "");
+  const auto = formData.get("slugAuto") === "1";
   const parsed = homeInputSchema.safeParse({
-    name: formData.get("name"),
-    slug: formData.get("slug"),
+    name,
+    slug: auto ? homeSlugFromName(name) : formData.get("slug"),
     password: formData.get("password"),
   });
   if (!parsed.success) return { error: firstIssue(parsed.error) };
   const input = parsed.data;
 
-  const ipKey = `invite:${await clientIp()}`;
-  const gate = await limiter.isBlocked(ipKey, RATE_RULES.invite);
+  const ipKey = `signup:${await clientIp()}`;
+  const gate = await limiter.isBlocked(ipKey, RATE_RULES.signup);
   if (!gate.allowed) return { error: tooManyAttempts(gate.resetsAt) };
 
-  const code = normalizeInviteCode(String(formData.get("invite") ?? ""));
-  if (!code) {
-    await limiter.hit(ipKey, RATE_RULES.invite);
-    return { error: BAD_INVITE };
-  }
+  const { homes, profiles } = await collections();
+  if ((await homes.countDocuments()) >= homeCap()) return { error: FULL };
 
-  const { homes, invites, profiles } = await collections();
-  if ((await homes.countDocuments()) >= homeCap()) {
-    return { error: "Por ahora no hay lugar para más casas. Escríbele a quien te invitó." };
-  }
-  if (await homes.findOne({ slug: input.slug }, { projection: { _id: 1 } })) {
-    return { error: "Ese código de casa ya lo usa otra familia. Prueba con otro." };
-  }
-
-  // Single-use: the claim is one atomic update, so two people can't redeem the same code.
   const now = new Date();
   const homeId = randomUUID();
-  const claimed = await invites.findOneAndUpdate(
-    { _id: code, usedAt: null, expiresAt: { $gt: now } },
-    { $set: { usedAt: now, usedByHomeId: homeId } },
-  );
-  if (!claimed) {
-    await limiter.hit(ipKey, RATE_RULES.invite);
-    return { error: BAD_INVITE };
-  }
-
-  const release = () => invites.updateOne({ _id: code }, { $set: { usedAt: null, usedByHomeId: null } });
   const recovery = generateRecoveryCode();
+  const [passwordHash, recoveryHash] = await Promise.all([hashSecret(input.password), hashSecret(recovery)]);
+  const candidates = auto ? slugCandidates(input.slug, randomSlugSuffix) : [input.slug];
+
+  let slug: string | null = null;
   try {
-    await homes.insertOne({
-      _id: homeId,
-      slug: input.slug,
-      name: input.name,
-      passwordHash: await hashSecret(input.password),
-      recoveryHash: await hashSecret(recovery),
-      inviteCode: code,
-      createdAt: now,
-      lastActiveAt: now,
-    });
+    for (const candidate of candidates) {
+      try {
+        await homes.insertOne({ _id: homeId, slug: candidate, name: input.name, passwordHash, recoveryHash, createdAt: now, lastActiveAt: now });
+        slug = candidate;
+        break;
+      } catch (err) {
+        // Unique index on slug: try the next variant (or report it when the person chose the code).
+        if (!isDuplicate(err)) throw err;
+      }
+    }
+    if (!slug) return { error: TAKEN };
     // Concurrent sign-ups could slip past the earlier check; settle it after the fact.
     if ((await homes.countDocuments()) > homeCap()) {
       await homes.deleteOne({ _id: homeId });
-      await release();
-      return { error: "Por ahora no hay lugar para más casas. Escríbele a quien te invitó." };
+      return { error: FULL };
     }
   } catch (err) {
     await homes.deleteOne({ _id: homeId });
     await profiles.deleteMany({ homeId });
-    await release();
-    if (err && typeof err === "object" && "code" in err && err.code === 11000) {
-      return { error: "Ese código de casa ya lo usa otra familia. Prueba con otro." };
-    }
     console.error(err);
     return { error: "No se pudo crear la casa. Intenta de nuevo." };
   }
 
+  await limiter.hit(ipKey, RATE_RULES.signup);
   await createSession({ homeId });
-  return { recoveryCode: formatRecoveryCode(recovery) };
+  return { recoveryCode: formatRecoveryCode(recovery), slug };
 }
 
 export async function recoverAccessAction(_prev: HomeFormState, formData: FormData): Promise<HomeFormState> {

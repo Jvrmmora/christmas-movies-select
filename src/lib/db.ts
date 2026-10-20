@@ -22,10 +22,13 @@ export interface MovieDoc extends MovieData {
   updatedAt: Date;
 }
 
-export interface CalendarDoc extends Omit<CalendarState, "preset"> {
+export interface CalendarDoc extends Omit<CalendarState, "preset" | "configured"> {
   _id?: ObjectId;
   ownerId: string;
-  preset: RangePreset;
+  /** "oct" and "novena" are retired presets still found in older documents; read through `normalizePreset`. */
+  preset: RangePreset | "oct" | "novena";
+  /** Set when the range is saved from the range picker. */
+  configuredAt?: Date;
   updatedAt: Date;
 }
 
@@ -43,7 +46,8 @@ export interface HomeDoc {
   name: string;
   passwordHash: string;
   recoveryHash: string;
-  inviteCode: string | null;
+  /** Only on homes created back when sign-up needed an invite. */
+  inviteCode?: string | null;
   createdAt: Date;
   lastActiveAt: Date;
 }
@@ -55,15 +59,6 @@ export interface ProfileDoc {
   name: string;
   avatar: Avatar;
   createdAt: Date;
-}
-
-/** Single-use invitation to create a home; _id is the canonical code. */
-export interface InviteDoc {
-  _id: string;
-  createdAt: Date;
-  expiresAt: Date;
-  usedByHomeId: string | null;
-  usedAt: Date | null;
 }
 
 export interface RateLimitDoc {
@@ -101,7 +96,6 @@ export async function collections() {
   const settings: Collection<SettingsDoc> = db.collection<SettingsDoc>("settings");
   const homes: Collection<HomeDoc> = db.collection<HomeDoc>("homes");
   const profiles: Collection<ProfileDoc> = db.collection<ProfileDoc>("profiles");
-  const invites: Collection<InviteDoc> = db.collection<InviteDoc>("invites");
   const rateLimits: Collection<RateLimitDoc> = db.collection<RateLimitDoc>("rate_limits");
   globalForMongo.mongoIndexes ??= Promise.all([
     movies.createIndex({ ownerId: 1, title: 1, year: 1 }, { unique: true, name: "owner_title_year" }),
@@ -110,12 +104,11 @@ export async function collections() {
     settings.createIndex({ ownerId: 1 }, { unique: true }),
     homes.createIndex({ slug: 1 }, { unique: true }),
     profiles.createIndex({ homeId: 1, createdAt: 1 }),
-    invites.createIndex({ usedAt: 1, expiresAt: 1 }),
     // Expired windows disappear on their own; no cron needed.
     rateLimits.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
   ]).then(() => undefined);
   await globalForMongo.mongoIndexes;
-  return { movies, calendars, settings, homes, profiles, invites, rateLimits };
+  return { movies, calendars, settings, homes, profiles, rateLimits };
 }
 
 /**

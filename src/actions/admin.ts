@@ -6,7 +6,6 @@ import { redirect } from "next/navigation";
 import { clientIp } from "@/lib/client-ip";
 import { collections } from "@/lib/db";
 import { deleteHomeCascade } from "@/lib/homes";
-import { formatInviteCode, generateInviteCode, inviteExpiry, normalizeInviteCode } from "@/lib/invite";
 import { RATE_RULES } from "@/lib/limits";
 import { tooManyAttempts } from "@/lib/rate-limit";
 import { limiter } from "@/lib/rate-limit-store";
@@ -45,37 +44,6 @@ export async function adminLoginAction(_prev: AdminLoginState, formData: FormDat
 export async function adminLogoutAction() {
   await deleteAdminSession();
   redirect("/admin");
-}
-
-export async function createInviteAction(): Promise<ActionResult<{ code: string }>> {
-  try {
-    await requireAdmin();
-    const { invites } = await collections();
-    const now = new Date();
-    // Housekeeping: unused invites that expired a month ago only clutter the list.
-    await invites.deleteMany({ usedAt: null, expiresAt: { $lt: new Date(now.getTime() - 30 * 86_400_000) } });
-    const code = generateInviteCode();
-    await invites.insertOne({ _id: code, createdAt: now, expiresAt: inviteExpiry(now), usedByHomeId: null, usedAt: null });
-    refresh();
-    return { ok: true, data: { code: formatInviteCode(code) } };
-  } catch (err) {
-    return { ok: false, error: errorMessage(err) };
-  }
-}
-
-export async function revokeInviteAction(code: string): Promise<ActionResult> {
-  try {
-    await requireAdmin();
-    const canonical = normalizeInviteCode(code);
-    if (!canonical) return { ok: false, error: "Código no válido" };
-    const { invites } = await collections();
-    // Only unused ones: used invites stay as the record of which home they created.
-    await invites.deleteOne({ _id: canonical, usedAt: null });
-    refresh();
-    return { ok: true };
-  } catch (err) {
-    return { ok: false, error: errorMessage(err) };
-  }
 }
 
 /** Removes a home and everything it owns. The caller must type the home's slug to confirm. */

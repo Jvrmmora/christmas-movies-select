@@ -1,5 +1,4 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { collections } from "@/lib/db";
 import { deleteHomeCascade, findInactiveHomeIds } from "@/lib/homes";
 
 // Weekly (see vercel.json). Vercel sends `Authorization: Bearer $CRON_SECRET` to cron paths.
@@ -17,9 +16,5 @@ export async function GET(request: Request) {
   const ids = await findInactiveHomeIds();
   for (const id of ids) await deleteHomeCascade(id);
 
-  // Unused invites that expired more than a month ago only clutter the admin list.
-  const { invites } = await collections();
-  const stale = await invites.deleteMany({ usedAt: null, expiresAt: { $lt: new Date(Date.now() - 30 * 86_400_000) } });
-
-  return Response.json({ homesDeleted: ids.length, invitesDeleted: stale.deletedCount });
+  return Response.json({ homesDeleted: ids.length });
 }

@@ -75,8 +75,9 @@
   --color-glass: var(--glass);
   --color-field: var(--field);
   --shadow-card: var(--shadow);
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
-  --font-serif: ui-serif, "New York", "Iowan Old Style", Georgia, serif;
+  /* Apple's system faces where they exist (SF Pro Text / Display); Inter everywhere else. */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 html {
@@ -92,9 +93,12 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-:focus-visible {
-  outline: 2.5px solid var(--gold);
-  outline-offset: 3px;
+/* In the base layer so utilities (e.g. a field that draws its own focus ring) can override it. */
+@layer base {
+  :focus-visible {
+    outline: 2.5px solid var(--gold);
+    outline-offset: 3px;
+  }
 }
 
 input::placeholder,
@@ -136,16 +140,16 @@ button:not(:disabled),
 .nv-bulb::before {
   content: "";
   position: absolute;
-  top: -3px;
-  left: 3px;
+  top: -2px;
+  left: 1px;
   width: 4px;
-  height: 4px;
+  height: 3px;
   border-radius: 1px;
   background: var(--ink-2);
 }
 @keyframes nv-twinkle {
-  0%, 100% { opacity: 1; box-shadow: 0 0 10px 1px currentColor; }
-  50% { opacity: 0.4; box-shadow: 0 0 0 0 transparent; }
+  0%, 100% { opacity: 0.9; box-shadow: 0 0 8px 0 currentColor; }
+  50% { opacity: 0.35; box-shadow: 0 0 0 0 transparent; }
 }
 
 .nv-draw { stroke-dasharray: 24; stroke-dashoffset: 24; animation: nv-draw 0.38s 0.06s cubic-bezier(0.65, 0, 0.35, 1) forwards; }
@@ -179,11 +183,103 @@ button:not(:disabled),
   50% { box-shadow: 0 0 0 3px var(--gold), 0 8px 40px rgba(201, 162, 39, 0.6); }
 }
 
+/* Floating "Agregar" */
+.nv-fab {
+  box-shadow: 0 10px 28px rgba(200, 16, 46, 0.38), 0 2px 6px rgba(0, 0, 0, 0.12);
+  transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s;
+  animation: nv-fab-in 0.5s 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.nv-fab:hover { transform: translateY(-2px); box-shadow: 0 14px 34px rgba(200, 16, 46, 0.48), 0 2px 6px rgba(0, 0, 0, 0.12); }
+.nv-fab:active { transform: scale(0.95); }
+@keyframes nv-fab-in { from { opacity: 0; transform: translateY(16px) scale(0.8); } to { opacity: 1; transform: none; } }
+
 .nv-spin { animation: nv-spin 0.9s linear infinite; }
 @keyframes nv-spin { to { transform: rotate(360deg); } }
 
 .nv-heart { animation: nv-heart 0.45s cubic-bezier(0.34, 1.56, 0.64, 1); }
 @keyframes nv-heart { from { transform: scale(0.6); } to { transform: scale(1); } }
+
+/* ---------- Sign-in scene: two-panel card with an animated Christmas tree ---------- */
+.nv-auth {
+  --scene: #fbf8f3;
+  --scene-blob: #e2eee6;
+  --scene-blob-2: #eef5f0;
+  --scene-ground: #ffffff;
+  --scene-shadow: rgba(20, 60, 40, 0.12);
+  --scene-flake: rgba(160, 185, 200, 0.75);
+  --scene-bubble: rgba(255, 255, 255, 0.75);
+  --tree-1: #1a6646;
+  --tree-2: #22805a;
+  --tree-3: #2e9e68;
+  --scene-ink: #1c1c1e;
+  --scene-ink-2: #5f5a54;
+  background: #0e2b20;
+}
+.dark .nv-auth {
+  --scene: #0b1b26;
+  --scene-blob: #112838;
+  --scene-blob-2: #0e2230;
+  --scene-ground: #dce6ee;
+  --scene-shadow: rgba(0, 0, 0, 0.25);
+  --scene-flake: rgba(255, 255, 255, 0.85);
+  --scene-bubble: rgba(255, 255, 255, 0.06);
+  --tree-1: #145238;
+  --tree-2: #1b6a49;
+  --tree-3: #24855a;
+  --scene-ink: #f5f5f7;
+  --scene-ink-2: #a9b6c2;
+  background: #07150f;
+}
+.nv-scene {
+  background: var(--scene);
+  border-radius: 0 260px 220px 0 / 0 52% 48% 0;
+  transition: background 0.6s;
+}
+@media (max-width: 859px) {
+  .nv-scene { border-radius: 0 0 55% 45% / 0 0 44px 44px; }
+}
+/* The form side is always pine green: re-scope the tokens so shared fields, buttons and links read well on it. */
+.nv-auth-panel {
+  --surface: rgba(255, 255, 255, 0.08);
+  --surface-2: rgba(255, 255, 255, 0.1);
+  --field: rgba(255, 255, 255, 0.08);
+  --line: rgba(255, 255, 255, 0.18);
+  --ink: #ffffff;
+  --ink-2: rgba(255, 255, 255, 0.74);
+  --berry-ink: #ffb3b6;
+  --gold-ink: #e8c766;
+  --gold-soft: rgba(232, 199, 102, 0.14);
+  --shadow: none;
+  background: #134232;
+  color: #ffffff;
+  color-scheme: dark;
+}
+.dark .nv-auth-panel { background: #0e2a1f; }
+.nv-scene-blob { background: var(--scene-blob); border-radius: 58% 42% 55% 45% / 48% 58% 42% 52%; animation: nv-morph 14s ease-in-out infinite; }
+.nv-scene-blob-2 { background: var(--scene-blob-2); border-radius: 45% 55% 40% 60% / 55% 45% 55% 45%; animation: nv-morph 11s ease-in-out infinite reverse; }
+.nv-scene-flake { position: absolute; top: -10px; border-radius: 9999px; background: var(--scene-flake); animation: nv-scene-fall linear infinite; }
+.nv-scene-bubble { position: absolute; border-radius: 9999px; background: var(--scene-bubble); animation: nv-float 9s ease-in-out infinite; }
+.nv-scene-star { position: absolute; border-radius: 9999px; background: #fff; animation: nv-star-twinkle 2.8s ease-in-out infinite; }
+.nv-tree { animation: nv-grow 1s 0.15s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.nv-tree-sway { transform-box: view-box; transform-origin: 160px 330px; animation: nv-sway 6s ease-in-out infinite; }
+.nv-tree-star { transform-box: fill-box; transform-origin: center; animation: nv-tree-star 2.6s ease-in-out infinite; filter: drop-shadow(0 0 6px rgba(242, 193, 78, 0.9)); }
+.nv-tree-bulb { animation: nv-blink 1.8s ease-in-out infinite; filter: drop-shadow(0 0 3px currentColor); }
+.nv-tree-ornament { transform-box: fill-box; transform-origin: 50% 0; animation: nv-swing 3.2s ease-in-out infinite; }
+.nv-tree-gift { transform-box: fill-box; transform-origin: 50% 100%; animation: nv-hop 3.6s ease-in-out infinite; }
+.nv-swap { animation: nv-fade 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes nv-grow { from { opacity: 0; transform: translateY(16px) scale(0.92); } to { opacity: 1; transform: none; } }
+@keyframes nv-sway { 0%, 100% { transform: rotate(-0.8deg); } 50% { transform: rotate(0.8deg); } }
+@keyframes nv-tree-star { 0%, 100% { transform: scale(1) rotate(0); } 50% { transform: scale(1.12) rotate(8deg); } }
+@keyframes nv-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+@keyframes nv-swing { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
+@keyframes nv-hop { 0%, 80%, 100% { transform: translateY(0); } 86% { transform: translateY(-7px); } 92% { transform: translateY(0); } 95% { transform: translateY(-2px); } }
+@keyframes nv-scene-fall { from { transform: translate3d(0, -10px, 0); } to { transform: translate3d(24px, 720px, 0); } }
+@keyframes nv-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
+@keyframes nv-star-twinkle { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
+@keyframes nv-morph {
+  0%, 100% { border-radius: 58% 42% 55% 45% / 48% 58% 42% 52%; }
+  50% { border-radius: 44% 56% 46% 54% / 56% 44% 58% 42%; }
+}
 
 /* Native <dialog> */
 dialog.nv-dialog {
@@ -251,7 +347,9 @@ dialog.nv-dialog[open] .nv-pop-in { animation: nv-pop-in 0.35s cubic-bezier(0.2,
 @media (prefers-reduced-motion: reduce) {
   .nv-av [class*="nv-av-"] { animation: none !important; }
   .nv-flake { display: none; }
-  .nv-bulb, .nv-on, .nv-fade, .nv-glow, .nv-heart, .nv-shimmer { animation: none !important; }
+  .nv-bulb, .nv-on, .nv-fade, .nv-glow, .nv-heart, .nv-shimmer, .nv-fab, .nv-swap { animation: none !important; }
+  .nv-auth * { animation: none !important; }
+  .nv-scene-flake { display: none; }
   .nv-draw { animation: none !important; stroke-dashoffset: 0; }
   .nv-lift, .nv-press { transition: none; }
   dialog.nv-dialog[open] .nv-flip,

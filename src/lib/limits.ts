@@ -3,7 +3,6 @@
 export const LIMITS = {
   profilesPerHome: 8,
   moviesPerHome: 150,
-  inviteTtlDays: 14,
   /** Homes without activity for this long are deleted by the weekly cleanup. */
   inactiveHomeDays: 365,
 } as const;
@@ -21,13 +20,13 @@ export const RATE_RULES = {
   login: { max: 5, windowMs: 15 * MINUTE },
   /** Wrong recovery codes per IP + home slug. */
   recovery: { max: 5, windowMs: 15 * MINUTE },
-  /** Invite codes tried per IP. */
-  invite: { max: 5, windowMs: HOUR },
+  /** Homes created per IP: anyone can sign up, so this keeps one person from filling the database. */
+  signup: { max: 3, windowMs: 24 * HOUR },
   /** JustWatch / OMDb lookups per home (OMDb's free key is small). */
   search: { max: 30, windowMs: HOUR },
 } satisfies Record<string, RateRule>;
 
-export const DEFAULT_HOME_CAP = 25;
+export const DEFAULT_HOME_CAP = 200;
 
 /** Maximum number of homes; HOME_CAP overrides the default when it is a non-negative integer. */
 export function homeCap(raw: string | undefined = process.env.HOME_CAP): number {

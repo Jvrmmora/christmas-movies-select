@@ -8,7 +8,7 @@ export const SESSION_DAYS = 30;
 /** Who is watching on this device, inside that home. */
 export const PROFILE_COOKIE = "nv_profile";
 export const PROFILE_DAYS = 365;
-/** Access to /admin (invites, homes). */
+/** Access to /admin (homes). */
 export const ADMIN_COOKIE = "nv_admin";
 export const ADMIN_HOURS = 12;
 
