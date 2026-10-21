@@ -27,13 +27,22 @@ export function Dialog({
     if (!el) return;
     if (open && !el.open) el.showModal();
     if (!open && el.open) el.close();
+    // A modal <dialog> keeps the whole page inert while it is open, even if its page gets hidden
+    // (the app keeps visited pages alive) or unmounted. Close it whenever we stop rendering it, or
+    // the page "freezes" after navigating away from an open dialog (e.g. gallery → movie).
+    return () => {
+      if (el.open) el.close();
+    };
   }, [open]);
 
   return (
     <dialog
       ref={ref}
       aria-labelledby={labelledBy}
-      onClose={onClose}
+      onClose={() => {
+        // Ignore the close event of a dialog that was re-opened right away (effect re-run).
+        if (!ref.current?.open) onClose();
+      }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
