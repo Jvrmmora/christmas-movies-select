@@ -72,11 +72,11 @@ export type MonthCell =
   | { kind: "xmas"; id: string }
   | { kind: "door"; id: string; day: number; key: string; index: number };
 
-/** Monday-first calendar grid for one month (YYYY-MM). */
+/** Sunday-first calendar grid for one month (YYYY-MM). */
 export function monthCells(monthKey: string, inRange: Map<string, number>): MonthCell[] {
   const [y, m] = monthKey.split("-").map(Number);
   const first = new Date(y, m - 1, 1);
-  const offset = (first.getDay() + 6) % 7;
+  const offset = first.getDay();
   const lastDay = new Date(y, m, 0).getDate();
   const cells: MonthCell[] = [];
   for (let i = 0; i < offset; i++) cells.push({ kind: "blank", id: `b${i}` });
