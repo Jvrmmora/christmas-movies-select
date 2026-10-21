@@ -141,6 +141,31 @@ export function MovieForm({ movie, calendar, calendarDate = null }: { movie?: Mo
   const [searching, setSearching] = useState(false);
   const searchSeq = useRef(0);
   const firstRun = useRef(true);
+
+  // The app keeps visited pages alive (cacheComponents), so a new-movie form would come back with the
+  // last search and the last profile. Leave it blank whenever the page is hidden or left.
+  useEffect(
+    () => () => {
+      if (editing) return;
+      searchSeq.current++;
+      setSearching(false);
+      setF({ ...EMPTY, suggestedBy: current.id });
+      setQName("");
+      setQYear("");
+      setCandidates(null);
+      setPicked(null);
+      setLookupOpen(true);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  // Someone else picked up the device: "who suggested it" follows the active profile.
+  const [seenProfile, setSeenProfile] = useState(current.id);
+  if (!editing && seenProfile !== current.id) {
+    setSeenProfile(current.id);
+    setF((s) => ({ ...s, suggestedBy: current.id }));
+  }
   const [saving, startSave] = useTransition();
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => setF((s) => ({ ...s, [key]: value }));

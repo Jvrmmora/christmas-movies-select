@@ -40,12 +40,12 @@ describe("calendar ranges", () => {
     expect(seasonFor(new Date(2026, 11, 26))).toBe(2027);
   });
 
-  it("lays out a Monday-first month with Christmas and no days after it", () => {
+  it("lays out a Sunday-first month with Christmas and no days after it", () => {
     const days = rangeDays("2026-12-01", "2026-12-24");
     const cells = monthCells("2026-12", new Map(days.map((k, i) => [k, i + 1])));
-    // Dec 1, 2026 is a Tuesday → one blank cell.
-    expect(cells[0].kind).toBe("blank");
-    expect(cells[1]).toMatchObject({ kind: "door", day: 1, index: 1 });
+    // Dec 1, 2026 is a Tuesday → two blank cells (Sun, Mon).
+    expect(cells.slice(0, 2).map((c) => c.kind)).toEqual(["blank", "blank"]);
+    expect(cells[2]).toMatchObject({ kind: "door", day: 1, index: 1 });
     expect(cells.filter((c) => c.kind === "door")).toHaveLength(24);
     expect(cells.at(-1)?.kind).toBe("xmas");
   });
