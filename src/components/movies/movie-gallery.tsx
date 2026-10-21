@@ -70,9 +70,14 @@ function GalleryBody({
   );
 
   // Open on the chosen movie, and keep keyboard focus inside the gallery.
+  // The <dialog> is only shown by the parent's effect, which runs after this one: wait a frame so the
+  // track has a real layout (otherwise offsets are 0 and it opens on the first poster).
   useEffect(() => {
-    goTo(startAt, false);
-    track.current?.parentElement?.focus();
+    const id = requestAnimationFrame(() => {
+      goTo(startAt, false);
+      track.current?.parentElement?.focus();
+    });
+    return () => cancelAnimationFrame(id);
   }, [goTo, startAt]);
 
   const onScroll = () => {

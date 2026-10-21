@@ -36,7 +36,7 @@ import { CalendarToolbar } from "./calendar-toolbar";
 const longFmt = new Intl.DateTimeFormat("es-CO", { weekday: "long", day: "numeric", month: "long" });
 const shortFmt = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "long" });
 const chipFmt = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short" });
-const WEEKDAYS = ["LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB", "DOM"];
+const WEEKDAYS = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
 
 /** The day under the finger wins; rectangles only as a fallback (keyboard, edges). */
 const collision: CollisionDetection = (args) => {
