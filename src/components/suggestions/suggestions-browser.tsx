@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Check, Loader2, PartyPopper, Plus, Sparkles } from "lucide-react";
 import type { SuggestionCursor } from "@/lib/suggestions-more";
 import { toast } from "sonner";
@@ -18,6 +18,25 @@ import type { Candidate } from "@/lib/types";
 
 type Sort = "imdb" | "rt" | "recent" | "classic";
 
+/** Same movie listed twice under different ids: match on normalized title + year. */
+const dupKey = (c: Candidate) =>
+  `${(c.originalTitle || c.title)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()}|${c.year}`;
+
+function dedupe(items: Candidate[]): Candidate[] {
+  const seen = new Set<string>();
+  return items.filter((c) => {
+    const k = dupKey(c);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
 export function SuggestionsBrowser({ suggestions: initial, totalCatalog }: { suggestions: Candidate[]; totalCatalog: number }) {
   const { play } = usePrefs();
   const [added, setAdded] = useState<Set<string>>(new Set());
@@ -27,12 +46,18 @@ export function SuggestionsBrowser({ suggestions: initial, totalCatalog }: { sug
   const [platform, setPlatform] = useState("all");
   const [sort, setSort] = useState<Sort>("imdb");
   const [detail, setDetail] = useState<Candidate | null>(null);
-  const [more, setMore] = useState<Candidate[]>([]);
+  // Each "load more" click is its own batch, kept apart so the new cards land at the end, not inside the sort.
+  const [batches, setBatches] = useState<Candidate[][]>([]);
+  const newestRef = useRef<HTMLDivElement>(null);
   const [cursor, setCursor] = useState<SuggestionCursor | null>(null);
   const [exhausted, setExhausted] = useState(false);
   const [loadingMore, startLoadingMore] = useTransition();
   // Everything ever shown stays in `suggestions`, so "load more" can never repeat a card.
-  const suggestions = useMemo(() => [...initial, ...more], [initial, more]);
+  const suggestions = useMemo(() => dedupe([...initial, ...batches.flat()]), [initial, batches]);
+
+  useEffect(() => {
+    if (batches.length) newestRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [batches.length]);
 
   const platforms = useMemo(() => {
     const map = new Map<string, { key: string; name: string; logoUrl?: string; count: number }>();
@@ -50,46 +75,72 @@ export function SuggestionsBrowser({ suggestions: initial, totalCatalog }: { sug
     return [...map.values()].sort((a, b) => b.count - a.count);
   }, [suggestions]);
 
-  const list = suggestions
-    .filter((c) => !added.has(c.justwatchId))
-    .filter((c) => {
-      const subs = subscriptionOffers(c.streaming);
-      if (onlyAvailable && !subs.length) return false;
-      if (platform !== "all" && !subs.some((o) => filterKey(o).key === platform)) return false;
-      return true;
-    })
-    .sort((a, b) => {
-      switch (sort) {
-        case "rt":
-          return (b.ratings.rottenTomatoes ?? -1) - (a.ratings.rottenTomatoes ?? -1);
-        case "recent":
-          return b.year - a.year;
-        case "classic":
-          return a.year - b.year;
-        default:
-          return (b.ratings.imdb ?? -1) - (a.ratings.imdb ?? -1);
-      }
-    });
+  const visible = (items: Candidate[]) =>
+    items
+      .filter((c) => !added.has(c.justwatchId))
+      .filter((c) => {
+        const subs = subscriptionOffers(c.streaming);
+        if (onlyAvailable && !subs.length) return false;
+        if (platform !== "all" && !subs.some((o) => filterKey(o).key === platform)) return false;
+        return true;
+      })
+      .sort((a, b) => {
+        switch (sort) {
+          case "rt":
+            return (b.ratings.rottenTomatoes ?? -1) - (a.ratings.rottenTomatoes ?? -1);
+          case "recent":
+            return b.year - a.year;
+          case "classic":
+            return a.year - b.year;
+          default:
+            return (b.ratings.imdb ?? -1) - (a.ratings.imdb ?? -1);
+        }
+      });
+
+  // Batches only hold what the earlier sections do not (dedupe keeps the first copy).
+  const sections = useMemo(() => {
+    const seenKeys = new Set<string>();
+    return [initial, ...batches].map((items) =>
+      items.filter((c) => {
+        const k = dupKey(c);
+        if (seenKeys.has(k)) return false;
+        seenKeys.add(k);
+        return true;
+      }),
+    );
+  }, [initial, batches]);
+  const shown = sections.map(visible);
+  const list = shown.flat();
 
   const loadMore = () => {
     startLoadingMore(async () => {
-      const res = await loadMoreSuggestionsAction(
-        suggestions.map((c) => c.justwatchId),
-        cursor,
-      );
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
-      }
       const known = new Set(suggestions.map((c) => c.justwatchId));
-      const fresh = res.data.items.filter((c) => !known.has(c.justwatchId));
-      setMore((m) => [...m, ...fresh]);
-      setCursor(res.data.cursor);
-      if (!res.data.cursor) setExhausted(true);
+      const knownKeys = new Set(suggestions.map(dupKey));
+      const fresh: Candidate[] = [];
+      let next = cursor;
+      // A tanda can come back empty (everything already seen); keep going a few times before giving up.
+      for (let attempt = 0; attempt < 4 && !fresh.length; attempt++) {
+        const res = await loadMoreSuggestionsAction([...known], next);
+        if (!res.ok) {
+          toast.error(res.error);
+          return;
+        }
+        for (const c of res.data.items) {
+          if (known.has(c.justwatchId) || knownKeys.has(dupKey(c))) continue;
+          known.add(c.justwatchId);
+          knownKeys.add(dupKey(c));
+          fresh.push(c);
+        }
+        next = res.data.cursor;
+        if (!next) break;
+      }
+      setCursor(next);
+      if (!next) setExhausted(true);
       if (fresh.length) {
+        setBatches((b) => [...b, fresh]);
         play("jingle");
-        toast.success(`${fresh.length} sugeridas nuevas`);
-      } else if (res.data.cursor) toast("No salió nada nuevo en esta tanda. Prueben de nuevo.");
+        toast.success(`${fresh.length} sugeridas nuevas, al final de la lista`);
+      } else if (next) toast("No salió nada nuevo en esta tanda. Prueben de nuevo.");
     });
   };
 
@@ -160,50 +211,67 @@ export function SuggestionsBrowser({ suggestions: initial, totalCatalog }: { sug
       </div>
 
       {list.length ? (
-        <ul className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-x-5 gap-y-8 sm:grid-cols-[repeat(auto-fill,minmax(190px,1fr))]">
-          {list.map((c, i) => {
-            const subs = subscriptionOffers(c.streaming).filter((o, idx, all) => all.findIndex((x) => (x.logoUrl ?? x.name) === (o.logoUrl ?? o.name)) === idx);
-            const busy = adding === c.justwatchId;
-            return (
-              <li key={c.justwatchId} className="nv-fade flex min-w-0 flex-col gap-2.5" style={{ animationDelay: `${Math.min(i, 12) * 0.03}s` }}>
-                <div className="relative aspect-[2/3] overflow-hidden rounded-2xl shadow-card">
-                  <button type="button" onClick={() => setDetail(c)} aria-label={`Ver detalle de ${c.title}`} className="block h-full w-full">
-                    <Poster src={c.posterUrl} title={c.title} className="h-full w-full" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => add(c)}
-                    disabled={busy}
-                    aria-label={`Agregar ${c.title} a mi lista`}
-                    className="nv-press absolute right-2.5 bottom-2.5 left-2.5 inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-berry text-sm font-semibold text-white shadow-[0_6px_18px_rgba(0,0,0,.35)] disabled:opacity-80"
-                  >
-                    {busy ? <Loader2 className="nv-spin size-4" aria-hidden /> : <Plus className="size-4" strokeWidth={2.4} aria-hidden />}
-                    {busy ? "Agregando…" : "Agregar a mi lista"}
-                  </button>
-                </div>
-                <div className="min-w-0">
-                  <button type="button" onClick={() => setDetail(c)} className="block max-w-full truncate text-left text-[15px] font-semibold hover:underline">
-                    {c.title}
-                  </button>
-                  <div className="truncate text-[13px] text-ink-2">
-                    {c.year}
-                    {c.runtimeMinutes ? ` · ${formatRuntime(c.runtimeMinutes)}` : ""}
-                  </div>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <RatingBadges ratings={c.ratings} />
-                  <span className="ml-auto flex items-center gap-1">
-                    {subs.length ? (
-                      subs.slice(0, 2).map((o) => <ProviderLogo key={o.provider} src={o.logoUrl} name={o.name} />)
-                    ) : (
-                      <span className="shrink-0 rounded-md bg-surface-2 px-1.5 py-0.5 text-[11px] font-semibold whitespace-nowrap text-ink-2">{c.streaming.length ? "Alquiler" : "Sin plataforma"}</span>
-                    )}
-                  </span>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+        <div className="flex flex-col gap-10">
+          {shown.map((items, n) =>
+            items.length ? (
+              <div key={n} ref={n === batches.length && n > 0 ? newestRef : undefined} className="flex scroll-mt-24 flex-col gap-5">
+                {n > 0 && (
+                  <h2 className="flex items-center gap-2 text-lg font-bold">
+                    <Sparkles className="size-5 text-gold" strokeWidth={1.8} aria-hidden />
+                    {n === batches.length ? "Recién cargadas" : "Más sugeridas"}
+                    <span className="rounded-full bg-gold-soft px-2.5 py-0.5 text-[13px] font-semibold text-gold-ink">{items.length}</span>
+                  </h2>
+                )}
+                <ul className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-x-5 gap-y-8 sm:grid-cols-[repeat(auto-fill,minmax(190px,1fr))]">
+                  {items.map((c, i) => {
+                    const subs = subscriptionOffers(c.streaming).filter((o, idx, all) => all.findIndex((x) => (x.logoUrl ?? x.name) === (o.logoUrl ?? o.name)) === idx);
+                    const busy = adding === c.justwatchId;
+                    return (
+                      <li key={c.justwatchId} className="nv-fade flex min-w-0 flex-col gap-2.5" style={{ animationDelay: `${Math.min(i, 12) * 0.03}s` }}>
+                        <div className="relative aspect-[2/3] overflow-hidden rounded-2xl shadow-card">
+                          <button type="button" onClick={() => setDetail(c)} aria-label={`Ver detalle de ${c.title}`} className="block h-full w-full">
+                            <Poster src={c.posterUrl} title={c.title} className="h-full w-full" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => add(c)}
+                            disabled={busy}
+                            aria-label={`Agregar ${c.title} a mi lista`}
+                            className="nv-press absolute right-2.5 bottom-2.5 left-2.5 inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-berry text-sm font-semibold text-white shadow-[0_6px_18px_rgba(0,0,0,.35)] disabled:opacity-80"
+                          >
+                            {busy ? <Loader2 className="nv-spin size-4" aria-hidden /> : <Plus className="size-4" strokeWidth={2.4} aria-hidden />}
+                            {busy ? "Agregando…" : "Agregar a mi lista"}
+                          </button>
+                        </div>
+                        <div className="min-w-0">
+                          <button type="button" onClick={() => setDetail(c)} className="block max-w-full truncate text-left text-[15px] font-semibold hover:underline">
+                            {c.title}
+                          </button>
+                          <div className="truncate text-[13px] text-ink-2">
+                            {c.year}
+                            {c.runtimeMinutes ? ` · ${formatRuntime(c.runtimeMinutes)}` : ""}
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <RatingBadges ratings={c.ratings} />
+                          <span className="ml-auto flex items-center gap-1">
+                            {subs.length ? (
+                              subs.slice(0, 2).map((o) => <ProviderLogo key={o.provider} src={o.logoUrl} name={o.name} />)
+                            ) : (
+                              <span className="shrink-0 rounded-md bg-surface-2 px-1.5 py-0.5 text-[11px] font-semibold whitespace-nowrap text-ink-2">
+                                {c.streaming.length ? "Alquiler" : "Sin plataforma"}
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ) : null,
+          )}
+        </div>
       ) : (
         <div className="flex flex-col items-center gap-3 rounded-[28px] bg-surface px-6 py-[72px] text-center shadow-card">
           <PartyPopper className="size-[64px] text-pine" strokeWidth={1.2} aria-hidden />
