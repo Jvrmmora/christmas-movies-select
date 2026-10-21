@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
-import { Check, ChevronDown, ChevronLeft, Clapperboard, Lock, Plus, Search, Trash2, WandSparkles, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { Check, ChevronDown, ChevronLeft, Clapperboard, Lock, Plus, Trash2, WandSparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { createMovieAction, searchMoviesAction, updateMovieAction } from "@/actions/movies";
 import { ProfileChips } from "@/components/profiles/profile-chips";
@@ -138,7 +138,9 @@ export function MovieForm({ movie, calendar, calendarDate = null }: { movie?: Mo
   const [candidates, setCandidates] = useState<Candidate[] | null>(null);
   const [picked, setPicked] = useState<string | null>(movie?.externalIds.justwatchId ?? null);
   const [lookupOpen, setLookupOpen] = useState(!editing);
-  const [searching, startSearch] = useTransition();
+  const [searching, setSearching] = useState(false);
+  const searchSeq = useRef(0);
+  const firstRun = useRef(true);
   const [saving, startSave] = useTransition();
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => setF((s) => ({ ...s, [key]: value }));
@@ -149,27 +151,43 @@ export function MovieForm({ movie, calendar, calendarDate = null }: { movie?: Mo
     play("jingle");
   };
 
-  const search = () => {
+  // live=true: búsqueda mientras escriben (sin avisos ni autoselección); false: Enter, con avisos
+  const search = async (live = false) => {
+    const name = qName.trim();
     const year = Number.parseInt(qYear, 10);
-    startSearch(async () => {
-      const res = await searchMoviesAction(qName, Number.isInteger(year) ? year : undefined, movie?.id);
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
-      }
-      setCandidates(res.data);
-      if (!res.data.length) {
-        toast("No encontramos esa película. Pueden llenar los datos a mano.");
-        setF((s) => ({ ...s, title: s.title || qName, year: s.year || qYear }));
-        return;
-      }
-      const best = res.data[0];
-      if (best.inLibrary && best.score >= 0.9) {
-        toast.warning(`Ya lo tienes en tu biblioteca: «${best.inLibrary.title}»`);
-        play("tick");
-      } else if (!editing && best.score >= 0.9) applyCandidate(best);
-    });
+    const seq = ++searchSeq.current;
+    setSearching(true);
+    const res = await searchMoviesAction(name, Number.isInteger(year) ? year : undefined, movie?.id);
+    if (seq !== searchSeq.current) return;
+    setSearching(false);
+    if (!res.ok) {
+      if (!live) toast.error(res.error);
+      return;
+    }
+    setCandidates(res.data);
+    if (live) return;
+    if (!res.data.length) {
+      toast("No encontramos esa película. Pueden llenar los datos a mano.");
+      setF((s) => ({ ...s, title: s.title || qName, year: s.year || qYear }));
+      return;
+    }
+    const best = res.data[0];
+    if (best.inLibrary && best.score >= 0.9) {
+      toast.warning(`Ya lo tienes en tu biblioteca: «${best.inLibrary.title}»`);
+      play("tick");
+    } else if (!editing && best.score >= 0.9) applyCandidate(best);
   };
+
+  useEffect(() => {
+    if (firstRun.current) {
+      firstRun.current = false;
+      return;
+    }
+    if (qName.trim().length < 2) return;
+    const t = setTimeout(() => void search(true), 450);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qName, qYear]);
 
   const days = useMemo(() => {
     const today = now ? toKey(now) : calendar.startDate;
@@ -254,7 +272,7 @@ export function MovieForm({ movie, calendar, calendarDate = null }: { movie?: Mo
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
-                      search();
+                      void search();
                     }
                   }}
                   placeholder="Ej. Home Alone o Mi pobre angelito"
@@ -269,7 +287,7 @@ export function MovieForm({ movie, calendar, calendarDate = null }: { movie?: Mo
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
-                      search();
+                      void search();
                     }
                   }}
                   inputMode="numeric"
@@ -277,15 +295,6 @@ export function MovieForm({ movie, calendar, calendarDate = null }: { movie?: Mo
                   className={`${field} h-[50px] text-[17px] tabular-nums`}
                 />
               </label>
-              <button
-                type="button"
-                onClick={search}
-                disabled={searching || !qName.trim()}
-                className="nv-press inline-flex h-[50px] flex-none items-center gap-2 rounded-[14px] bg-berry px-[22px] text-base font-semibold text-white disabled:opacity-60"
-              >
-                <Search className="size-[18px]" strokeWidth={2} aria-hidden />
-                {searching ? "Buscando…" : "Buscar"}
-              </button>
             </div>
             {searching && (
               <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3" role="status" aria-label="Buscando">
@@ -300,7 +309,10 @@ export function MovieForm({ movie, calendar, calendarDate = null }: { movie?: Mo
                 ))}
               </div>
             )}
-            {!searching && candidates && candidates.length > 0 && (
+            {!searching && candidates && candidates.length === 0 && qName.trim().length >= 2 && (
+              <div className="text-[13px] text-ink-2">Sin coincidencias en JustWatch. Prueben otro nombre o llenen los datos a mano.</div>
+            )}
+            {!searching && candidates && candidates.length > 0 && qName.trim().length >= 2 && (
               <div className="flex flex-col gap-2.5">
                 <div className="text-[13px] text-ink-2">
                   {candidates.length} {candidates.length === 1 ? "coincidencia" : "coincidencias"} en JustWatch Colombia · elijan la correcta
