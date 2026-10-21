@@ -48,7 +48,7 @@ export function SuggestionsBrowser({ suggestions: initial, totalCatalog }: { sug
   const [detail, setDetail] = useState<Candidate | null>(null);
   // Each "load more" click is its own batch, kept apart so the new cards land at the end, not inside the sort.
   const [batches, setBatches] = useState<Candidate[][]>([]);
-  const newestRef = useRef<HTMLDivElement>(null);
+  const newestRef = useRef<HTMLLIElement>(null);
   const [cursor, setCursor] = useState<SuggestionCursor | null>(null);
   const [exhausted, setExhausted] = useState(false);
   const [loadingMore, startLoadingMore] = useTransition();
@@ -110,7 +110,7 @@ export function SuggestionsBrowser({ suggestions: initial, totalCatalog }: { sug
     );
   }, [initial, batches]);
   const shown = sections.map(visible);
-  const list = shown.flat();
+  const list = shown.flatMap((items, batch) => items.map((c) => ({ c, batch })));
 
   const loadMore = () => {
     startLoadingMore(async () => {
@@ -211,67 +211,66 @@ export function SuggestionsBrowser({ suggestions: initial, totalCatalog }: { sug
       </div>
 
       {list.length ? (
-        <div className="flex flex-col gap-10">
-          {shown.map((items, n) =>
-            items.length ? (
-              <div key={n} ref={n === batches.length && n > 0 ? newestRef : undefined} className="flex scroll-mt-24 flex-col gap-5">
-                {n > 0 && (
-                  <h2 className="flex items-center gap-2 text-lg font-bold">
-                    <Sparkles className="size-5 text-gold" strokeWidth={1.8} aria-hidden />
-                    {n === batches.length ? "Recién cargadas" : "Más sugeridas"}
-                    <span className="rounded-full bg-gold-soft px-2.5 py-0.5 text-[13px] font-semibold text-gold-ink">{items.length}</span>
-                  </h2>
-                )}
-                <ul className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-x-5 gap-y-8 sm:grid-cols-[repeat(auto-fill,minmax(190px,1fr))]">
-                  {items.map((c, i) => {
-                    const subs = subscriptionOffers(c.streaming).filter((o, idx, all) => all.findIndex((x) => (x.logoUrl ?? x.name) === (o.logoUrl ?? o.name)) === idx);
-                    const busy = adding === c.justwatchId;
-                    return (
-                      <li key={c.justwatchId} className="nv-fade flex min-w-0 flex-col gap-2.5" style={{ animationDelay: `${Math.min(i, 12) * 0.03}s` }}>
-                        <div className="relative aspect-[2/3] overflow-hidden rounded-2xl shadow-card">
-                          <button type="button" onClick={() => setDetail(c)} aria-label={`Ver detalle de ${c.title}`} className="block h-full w-full">
-                            <Poster src={c.posterUrl} title={c.title} className="h-full w-full" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => add(c)}
-                            disabled={busy}
-                            aria-label={`Agregar ${c.title} a mi lista`}
-                            className="nv-press absolute right-2.5 bottom-2.5 left-2.5 inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-berry text-sm font-semibold text-white shadow-[0_6px_18px_rgba(0,0,0,.35)] disabled:opacity-80"
-                          >
-                            {busy ? <Loader2 className="nv-spin size-4" aria-hidden /> : <Plus className="size-4" strokeWidth={2.4} aria-hidden />}
-                            {busy ? "Agregando…" : "Agregar a mi lista"}
-                          </button>
-                        </div>
-                        <div className="min-w-0">
-                          <button type="button" onClick={() => setDetail(c)} className="block max-w-full truncate text-left text-[15px] font-semibold hover:underline">
-                            {c.title}
-                          </button>
-                          <div className="truncate text-[13px] text-ink-2">
-                            {c.year}
-                            {c.runtimeMinutes ? ` · ${formatRuntime(c.runtimeMinutes)}` : ""}
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between gap-2">
-                          <RatingBadges ratings={c.ratings} />
-                          <span className="ml-auto flex items-center gap-1">
-                            {subs.length ? (
-                              subs.slice(0, 2).map((o) => <ProviderLogo key={o.provider} src={o.logoUrl} name={o.name} />)
-                            ) : (
-                              <span className="shrink-0 rounded-md bg-surface-2 px-1.5 py-0.5 text-[11px] font-semibold whitespace-nowrap text-ink-2">
-                                {c.streaming.length ? "Alquiler" : "Sin plataforma"}
-                              </span>
-                            )}
-                          </span>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ) : null,
-          )}
-        </div>
+        // One continuous grid, so filters never leave holes; newly loaded cards go last and are marked.
+        <ul className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-x-5 gap-y-8 sm:grid-cols-[repeat(auto-fill,minmax(190px,1fr))]">
+          {list.map(({ c, batch }, i) => {
+            const isNew = batch === batches.length && batch > 0;
+            const firstNew = isNew && (i === 0 || list[i - 1].batch !== batch);
+            const subs = subscriptionOffers(c.streaming).filter((o, idx, all) => all.findIndex((x) => (x.logoUrl ?? x.name) === (o.logoUrl ?? o.name)) === idx);
+            const busy = adding === c.justwatchId;
+            return (
+              <li
+                key={c.justwatchId}
+                ref={firstNew ? newestRef : undefined}
+                className="nv-fade flex min-w-0 scroll-mt-24 flex-col gap-2.5"
+                style={{ animationDelay: `${Math.min(i, 12) * 0.03}s` }}
+              >
+                <div className="relative aspect-[2/3] overflow-hidden rounded-2xl shadow-card">
+                  <button type="button" onClick={() => setDetail(c)} aria-label={`Ver detalle de ${c.title}`} className="block h-full w-full">
+                    <Poster src={c.posterUrl} title={c.title} className="h-full w-full" />
+                  </button>
+                  {isNew && (
+                    <span className="pointer-events-none absolute top-2.5 left-2.5 inline-flex items-center gap-1 rounded-full bg-gold px-2.5 py-1 text-[11px] font-bold text-[#1b1405] shadow-[0_4px_12px_rgba(0,0,0,.35)]">
+                      <Sparkles className="size-3" strokeWidth={2.4} aria-hidden />
+                      Nuevo
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => add(c)}
+                    disabled={busy}
+                    aria-label={`Agregar ${c.title} a mi lista`}
+                    className="nv-press absolute right-2.5 bottom-2.5 left-2.5 inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-berry text-sm font-semibold text-white shadow-[0_6px_18px_rgba(0,0,0,.35)] disabled:opacity-80"
+                  >
+                    {busy ? <Loader2 className="nv-spin size-4" aria-hidden /> : <Plus className="size-4" strokeWidth={2.4} aria-hidden />}
+                    {busy ? "Agregando…" : "Agregar a mi lista"}
+                  </button>
+                </div>
+                <div className="min-w-0">
+                  <button type="button" onClick={() => setDetail(c)} className="block max-w-full truncate text-left text-[15px] font-semibold hover:underline">
+                    {c.title}
+                  </button>
+                  <div className="truncate text-[13px] text-ink-2">
+                    {c.year}
+                    {c.runtimeMinutes ? ` · ${formatRuntime(c.runtimeMinutes)}` : ""}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <RatingBadges ratings={c.ratings} />
+                  <span className="ml-auto flex items-center gap-1">
+                    {subs.length ? (
+                      subs.slice(0, 2).map((o) => <ProviderLogo key={o.provider} src={o.logoUrl} name={o.name} />)
+                    ) : (
+                      <span className="shrink-0 rounded-md bg-surface-2 px-1.5 py-0.5 text-[11px] font-semibold whitespace-nowrap text-ink-2">
+                        {c.streaming.length ? "Alquiler" : "Sin plataforma"}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       ) : (
         <div className="flex flex-col items-center gap-3 rounded-[28px] bg-surface px-6 py-[72px] text-center shadow-card">
           <PartyPopper className="size-[64px] text-pine" strokeWidth={1.2} aria-hidden />
