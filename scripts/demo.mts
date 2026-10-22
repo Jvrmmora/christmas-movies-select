@@ -1,12 +1,12 @@
 /**
  * Demo data in a separate database (name must contain "demo"): a home with four profiles, the movie
  * list credited to them, a few watched, favorites and a filled advent calendar starting a few days ago.
- *   pnpm demo            → load  (sign in with home code "casa-demo" and password "navidad")
+ *   pnpm demo            → load  (sign in as "ana@demo.com" with password "navidad")
  *   pnpm demo --limpiar  → delete the demo data
  */
 import { randomUUID } from "node:crypto";
 import { collections, LEGACY_HOME_ID, getDb } from "../src/lib/db";
-import { generateRecoveryCode } from "../src/lib/recovery-code";
+import { generateInviteCode } from "../src/lib/invite-code";
 import { hashSecret } from "../src/lib/password";
 import type { Avatar } from "../src/lib/avatar";
 import { seasonEnd, seasonFor, toKey } from "../src/lib/calendar";
@@ -18,7 +18,7 @@ if (!dbName.includes("demo")) {
   process.exit(1);
 }
 
-const DEMO_HOME = { slug: "casa-demo", name: "Casa Demo", password: "navidad" };
+const DEMO_HOME = { name: "Casa Demo", email: "ana@demo.com", password: "navidad" };
 const DEMO_PROFILES: { name: string; avatar: Avatar }[] = [
   { name: "Ana", avatar: { character: "santi", bg: "pine", accessory: "none" } },
   { name: "Leo", avatar: { character: "rudolfo", bg: "snow", accessory: "none" } },
@@ -36,7 +36,7 @@ async function main() {
   }
 
   await seedList();
-  const { movies, calendars, homes, profiles } = await collections();
+  const { movies, calendars, homes, users, profiles } = await collections();
   const ownerId = LEGACY_HOME_ID;
   const all = await movies.find({ ownerId }).sort({ createdAt: 1 }).toArray();
 
@@ -68,14 +68,7 @@ async function main() {
   await homes.updateOne(
     { _id: ownerId },
     {
-      $setOnInsert: {
-        slug: DEMO_HOME.slug,
-        name: DEMO_HOME.name,
-        passwordHash: await hashSecret(DEMO_HOME.password),
-        recoveryHash: await hashSecret(generateRecoveryCode()),
-        inviteCode: null,
-        createdAt: now,
-      },
+      $setOnInsert: { name: DEMO_HOME.name, inviteCode: generateInviteCode(), createdAt: now },
       $set: { lastActiveAt: now },
     },
     { upsert: true },
@@ -83,6 +76,16 @@ async function main() {
   await profiles.deleteMany({ homeId: ownerId });
   const people = DEMO_PROFILES.map((p, i) => ({ _id: randomUUID(), homeId: ownerId, name: p.name, avatar: p.avatar, createdAt: new Date(now.getTime() + i) }));
   await profiles.insertMany(people);
+  // Ana signs in with her own account; the other three are loose profiles.
+  const ana = await users.findOneAndUpdate(
+    { email: DEMO_HOME.email },
+    {
+      $set: { homeId: ownerId, passwordHash: await hashSecret(DEMO_HOME.password), lastActiveAt: now },
+      $setOnInsert: { _id: randomUUID(), createdAt: now },
+    },
+    { upsert: true, returnDocument: "after" },
+  );
+  await profiles.updateOne({ _id: people[0]._id }, { $set: { userId: ana!._id } });
   // The last movie stays uncredited, like one saved before profiles existed.
   await movies.bulkWrite(
     all.slice(0, -1).map((m, i) => ({
@@ -93,7 +96,7 @@ async function main() {
     })),
   );
   console.log(`Demo lista en ${dbName}: ${all.length} películas, ${watchedIds.length} vistas, calendario desde ${toKey(start)}.`);
-  console.log(`Entren con el código de casa "${DEMO_HOME.slug}" y la clave "${DEMO_HOME.password}".`);
+  console.log(`Entren con "${DEMO_HOME.email}" y la clave "${DEMO_HOME.password}".`);
 }
 
 main()

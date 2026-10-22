@@ -3,15 +3,15 @@
 import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { clientIp } from "@/lib/client-ip";
-import { collections, type HomeDoc } from "@/lib/db";
+import { collections, type UserDoc } from "@/lib/db";
 import { RATE_RULES } from "@/lib/limits";
 import { canSendMail, sendResetCode } from "@/lib/mailer";
 import { hashSecret, verifySecret } from "@/lib/password";
 import { tooManyAttempts } from "@/lib/rate-limit";
 import { limiter } from "@/lib/rate-limit-store";
 import { generateResetCode, resetExpiry, RESET_MAX_ATTEMPTS } from "@/lib/reset-code";
-import { createSession } from "@/lib/session";
-import { firstIssue, homeEmailSchema, homePasswordSchema, resetCodeSchema } from "@/lib/validation";
+import { createProfileSession, createSession } from "@/lib/session";
+import { emailSchema, firstIssue, passwordSchema, resetCodeSchema } from "@/lib/validation";
 
 export interface ResetState {
   error?: string;
@@ -22,23 +22,23 @@ export interface ResetState {
 const BAD_CODE = "El código no es válido o ya venció. Pide uno nuevo.";
 
 /** Creates, stores (hashed) and mails a code. Runs after the response so existing and unknown addresses answer in the same time. */
-async function issueCode(home: Pick<HomeDoc, "_id" | "name" | "email">) {
+async function issueCode(user: Pick<UserDoc, "_id" | "email">) {
   try {
-    const { homes } = await collections();
+    const { users } = await collections();
     const code = generateResetCode();
-    await homes.updateOne({ _id: home._id }, { $set: { reset: { codeHash: await hashSecret(code), expiresAt: resetExpiry(), attempts: 0 } } });
-    await sendResetCode(home.email!, code, home.name);
+    await users.updateOne({ _id: user._id }, { $set: { reset: { codeHash: await hashSecret(code), expiresAt: resetExpiry(), attempts: 0 } } });
+    await sendResetCode(user.email, code);
   } catch (err) {
     console.error("No se pudo enviar el código de recuperación", err);
   }
 }
 
 /**
- * Step 1 of "forgot my password". The answer never says whether the address belongs to a home,
+ * Step 1 of "forgot my password". The answer never says whether the address has an account,
  * so this form can't be used to find out who is registered.
  */
 export async function requestResetAction(_prev: ResetState, formData: FormData): Promise<ResetState> {
-  const email = homeEmailSchema.safeParse(formData.get("email"));
+  const email = emailSchema.safeParse(formData.get("email"));
   if (!email.success) return { error: firstIssue(email.error) };
   if (!canSendMail()) return { error: "El envío de correos no está configurado. Avisa a quien administra la app." };
 
@@ -49,44 +49,47 @@ export async function requestResetAction(_prev: ResetState, formData: FormData):
   const blocked = [byIp, byEmail].find((r) => !r.allowed);
   if (blocked) return { error: tooManyAttempts(blocked.resetsAt) };
 
-  const { homes } = await collections();
-  const home = await homes.findOne({ email: email.data }, { projection: { name: 1, email: 1 } });
-  if (home) after(() => issueCode(home));
+  const { users } = await collections();
+  const user = await users.findOne({ email: email.data }, { projection: { email: 1 } });
+  if (user) after(() => issueCode(user));
   return { email: email.data };
 }
 
 /** Step 2: the six digits from the e-mail + the new password. */
 export async function resetPasswordAction(_prev: ResetState, formData: FormData): Promise<ResetState> {
-  const email = homeEmailSchema.safeParse(formData.get("email"));
+  const email = emailSchema.safeParse(formData.get("email"));
   if (!email.success) return { error: firstIssue(email.error) };
   const code = resetCodeSchema.safeParse(String(formData.get("code") ?? ""));
   if (!code.success) return { email: email.data, error: firstIssue(code.error) };
-  const password = homePasswordSchema.safeParse(formData.get("password"));
+  const password = passwordSchema.safeParse(formData.get("password"));
   if (!password.success) return { email: email.data, error: firstIssue(password.error) };
 
   const key = `reset-verify:${await clientIp()}:${email.data}`;
   const gate = await limiter.isBlocked(key, RATE_RULES.resetVerify);
   if (!gate.allowed) return { email: email.data, error: tooManyAttempts(gate.resetsAt) };
 
-  const { homes } = await collections();
+  const { users, profiles } = await collections();
   // The attempt is counted before the comparison, so parallel guesses can't beat the limit.
-  const home = await homes.findOneAndUpdate(
+  const user = await users.findOneAndUpdate(
     { email: email.data, "reset.expiresAt": { $gt: new Date() }, "reset.attempts": { $lt: RESET_MAX_ATTEMPTS } },
     { $inc: { "reset.attempts": 1 } },
     { returnDocument: "after" },
   );
-  const ok = !!home?.reset && (await verifySecret(code.data, home.reset.codeHash));
-  if (!home || !ok) {
+  const ok = !!user?.reset && (await verifySecret(code.data, user.reset.codeHash));
+  if (!user || !ok) {
     await limiter.hit(key, RATE_RULES.resetVerify);
     await new Promise((r) => setTimeout(r, 600));
     return { email: email.data, error: BAD_CODE };
   }
 
   await limiter.reset(key);
-  await homes.updateOne(
-    { _id: home._id },
+  await users.updateOne(
+    { _id: user._id },
     { $set: { passwordHash: await hashSecret(password.data), lastActiveAt: new Date() }, $unset: { reset: "" } },
   );
-  await createSession({ homeId: home._id });
-  redirect("/");
+  const homeId = user.homeId ?? null;
+  await createSession({ userId: user._id, homeId });
+  const own = homeId ? await profiles.findOne({ homeId, userId: user._id }, { projection: { _id: 1 } }) : null;
+  if (homeId && own) await createProfileSession({ homeId, profileId: own._id });
+  redirect(homeId ? "/" : "/bienvenida");
 }

@@ -1,127 +1,136 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
+import { refresh } from "next/cache";
+import { redirect } from "next/navigation";
 import { clientIp } from "@/lib/client-ip";
 import { collections } from "@/lib/db";
-import { formatRecoveryCode, generateRecoveryCode, normalizeRecoveryCode, randomSlugSuffix } from "@/lib/recovery-code";
-import { homeCap, RATE_RULES } from "@/lib/limits";
-import { hashSecret, verifySecret } from "@/lib/password";
+import { generateInviteCode, normalizeInviteCode } from "@/lib/invite-code";
+import { homeCap, LIMITS, RATE_RULES } from "@/lib/limits";
 import { tooManyAttempts } from "@/lib/rate-limit";
 import { limiter } from "@/lib/rate-limit-store";
-import { createSession } from "@/lib/session";
-import { homeSlugFromName, slugCandidates } from "@/lib/slug";
-import { firstIssue, homeInputSchema, homePasswordSchema, homeSlugSchema } from "@/lib/validation";
+import { createSession, deleteProfileSession } from "@/lib/session";
+import type { ActionResult } from "@/lib/types";
+import { firstIssue, homeNameSchema } from "@/lib/validation";
+import { errorMessage, requireOwner, requireUser } from "./guard";
 
-/** The recovery code (only legacy homes without an e-mail use one) is returned once; only its hash is kept. */
 export interface HomeFormState {
   error?: string;
-  recoveryCode?: string;
-  /** The code the family will type to sign in (may differ from the suggestion if that one was taken). */
-  slug?: string;
 }
 
 const FULL = "Por ahora no hay lugar para más casas. Intenten más tarde.";
-const TAKEN = "Ese código de casa ya lo usa otra familia. Prueba con otro.";
-const EMAIL_TAKEN = "Ese correo ya está registrado en otra casa.";
+const HAS_HOME = "Ya perteneces a una casa.";
+const BAD_CODE = "Ese código de invitación no existe o ya lo cambiaron. Pide el más reciente.";
 
 const isDuplicate = (err: unknown) => !!err && typeof err === "object" && "code" in err && err.code === 11000;
-/** Which unique index a duplicate-key error came from. */
-const duplicateOn = (err: unknown, field: string) =>
-  !!err && typeof err === "object" && "keyPattern" in err && !!err.keyPattern && typeof err.keyPattern === "object" && field in err.keyPattern;
 
-/**
- * Open sign-up: name + e-mail + password. The home code is suggested from the name; when the person kept the
- * suggestion and it is taken, the next free variant is used (casa-montano-2 …). Protected by a per-IP
- * daily limit and the global HOME_CAP.
- */
-export async function createHomeAction(_prev: HomeFormState, formData: FormData): Promise<HomeFormState> {
-  const name = String(formData.get("name") ?? "");
-  const auto = formData.get("slugAuto") === "1";
-  const parsed = homeInputSchema.safeParse({
-    name,
-    email: formData.get("email"),
-    slug: auto ? homeSlugFromName(name) : formData.get("slug"),
-    password: formData.get("password"),
-  });
-  if (!parsed.success) return { error: firstIssue(parsed.error) };
-  const input = parsed.data;
-
-  const ipKey = `signup:${await clientIp()}`;
-  const gate = await limiter.isBlocked(ipKey, RATE_RULES.signup);
-  if (!gate.allowed) return { error: tooManyAttempts(gate.resetsAt) };
-
-  const { homes, profiles } = await collections();
-  if ((await homes.countDocuments()) >= homeCap()) return { error: FULL };
-
-  const now = new Date();
-  const homeId = randomUUID();
-  const passwordHash = await hashSecret(input.password);
-  const candidates = auto ? slugCandidates(input.slug, randomSlugSuffix) : [input.slug];
-
-  let slug: string | null = null;
-  try {
-    for (const candidate of candidates) {
-      try {
-        await homes.insertOne({ _id: homeId, slug: candidate, name: input.name, email: input.email, passwordHash, createdAt: now, lastActiveAt: now });
-        slug = candidate;
-        break;
-      } catch (err) {
-        // A taken e-mail won't get better with another code.
-        if (duplicateOn(err, "email")) return { error: EMAIL_TAKEN };
-        // Unique index on slug: try the next variant (or report it when the person chose the code).
-        if (!isDuplicate(err)) throw err;
-      }
+/** Inserts with a fresh invite code, trying again in the (very unlikely) case it is already taken. */
+async function withFreshInviteCode(write: (code: string) => Promise<unknown>): Promise<string> {
+  for (let attempt = 0; ; attempt++) {
+    const code = generateInviteCode();
+    try {
+      await write(code);
+      return code;
+    } catch (err) {
+      if (!isDuplicate(err) || attempt >= 4) throw err;
     }
-    if (!slug) return { error: TAKEN };
+  }
+}
+
+/** Points the account at its home. Only works while it has none, so two tabs can't end up in two homes. */
+async function moveIn(userId: string, homeId: string): Promise<boolean> {
+  const { users } = await collections();
+  const res = await users.updateOne({ _id: userId, homeId: null }, { $set: { homeId, lastActiveAt: new Date() } });
+  if (!res.modifiedCount) return false;
+  // A profile picked in a previous home must not follow the account here.
+  await deleteProfileSession();
+  await createSession({ userId, homeId });
+  return true;
+}
+
+/** Step 2a: a new home, named by the person. Protected by a per-IP daily limit and the global HOME_CAP. */
+export async function createHomeAction(_prev: HomeFormState, formData: FormData): Promise<HomeFormState> {
+  const name = homeNameSchema.safeParse(formData.get("name"));
+  if (!name.success) return { error: firstIssue(name.error) };
+
+  try {
+    const { userId, homeId: current } = await requireUser();
+    if (current) return { error: HAS_HOME };
+
+    const ipKey = `create-home:${await clientIp()}`;
+    const gate = await limiter.isBlocked(ipKey, RATE_RULES.createHome);
+    if (!gate.allowed) return { error: tooManyAttempts(gate.resetsAt) };
+
+    const { homes } = await collections();
+    if ((await homes.countDocuments()) >= homeCap()) return { error: FULL };
+
+    const now = new Date();
+    const homeId = randomUUID();
+    await withFreshInviteCode((inviteCode) =>
+      homes.insertOne({ _id: homeId, name: name.data, inviteCode, createdBy: userId, createdAt: now, lastActiveAt: now }),
+    );
     // Concurrent sign-ups could slip past the earlier check; settle it after the fact.
     if ((await homes.countDocuments()) > homeCap()) {
       await homes.deleteOne({ _id: homeId });
       return { error: FULL };
     }
+    if (!(await moveIn(userId, homeId))) {
+      await homes.deleteOne({ _id: homeId });
+      return { error: HAS_HOME };
+    }
+    await limiter.hit(ipKey, RATE_RULES.createHome);
   } catch (err) {
-    await homes.deleteOne({ _id: homeId });
-    await profiles.deleteMany({ homeId });
-    console.error(err);
-    return { error: "No se pudo crear la casa. Intenta de nuevo." };
+    return { error: errorMessage(err, "No se pudo crear la casa. Intenta de nuevo.") };
   }
-
-  await limiter.hit(ipKey, RATE_RULES.signup);
-  await createSession({ homeId });
-  return { slug };
+  redirect("/perfiles");
 }
 
-export async function recoverAccessAction(_prev: HomeFormState, formData: FormData): Promise<HomeFormState> {
-  const slug = homeSlugSchema.safeParse(formData.get("slug"));
-  const password = homePasswordSchema.safeParse(formData.get("password"));
-  if (!password.success) return { error: firstIssue(password.error) };
-  const recoveryInput = normalizeRecoveryCode(String(formData.get("recovery") ?? ""));
+/** Step 2b: join an existing home with its invite code (typed, or carried over from /unirse/<code>). */
+export async function joinHomeAction(_prev: HomeFormState, formData: FormData): Promise<HomeFormState> {
+  try {
+    const { userId, homeId: current } = await requireUser();
+    if (current) return { error: HAS_HOME };
 
-  const key = `recovery:${await clientIp()}:${slug.success ? slug.data : "-"}`;
-  const gate = await limiter.isBlocked(key, RATE_RULES.recovery);
-  if (!gate.allowed) return { error: tooManyAttempts(gate.resetsAt) };
+    const key = `join:${await clientIp()}`;
+    const gate = await limiter.isBlocked(key, RATE_RULES.join);
+    if (!gate.allowed) return { error: tooManyAttempts(gate.resetsAt) };
 
-  const { homes } = await collections();
-  const home = slug.success ? await homes.findOne({ slug: slug.data }) : null;
-  const ok = !!home?.recoveryHash && !!recoveryInput && (await verifySecret(recoveryInput, home.recoveryHash));
-  if (!home || !ok) {
-    await limiter.hit(key, RATE_RULES.recovery);
-    await new Promise((r) => setTimeout(r, 600));
-    return { error: "El código de la casa o el código de recuperación no coinciden." };
+    const code = normalizeInviteCode(String(formData.get("code") ?? ""));
+    const { homes, users, profiles } = await collections();
+    const home = code ? await homes.findOne({ inviteCode: code }, { projection: { _id: 1 } }) : null;
+    if (!home) {
+      await limiter.hit(key, RATE_RULES.join);
+      await new Promise((r) => setTimeout(r, 600));
+      return { error: BAD_CODE };
+    }
+
+    // Room means a profile slot for the newcomer: a free one, or a loose profile they can claim as theirs.
+    const [members, total, loose] = await Promise.all([
+      users.countDocuments({ homeId: home._id }),
+      profiles.countDocuments({ homeId: home._id }),
+      profiles.countDocuments({ homeId: home._id, userId: { $exists: false } }),
+    ]);
+    if (members >= LIMITS.profilesPerHome || (total >= LIMITS.profilesPerHome && loose === 0)) {
+      return { error: `Esa casa ya está llena: cada casa puede tener hasta ${LIMITS.profilesPerHome} perfiles.` };
+    }
+
+    await limiter.reset(key);
+    if (!(await moveIn(userId, home._id))) return { error: HAS_HOME };
+  } catch (err) {
+    return { error: errorMessage(err, "No pudimos unirte a la casa. Intenta de nuevo.") };
   }
+  redirect("/perfiles");
+}
 
-  // A recovery code is good for one reset; hand out a fresh one for next time.
-  await limiter.reset(key);
-  const next = generateRecoveryCode();
-  await homes.updateOne(
-    { _id: home._id },
-    {
-      $set: {
-        passwordHash: await hashSecret(password.data),
-        recoveryHash: await hashSecret(next),
-        lastActiveAt: new Date(),
-      },
-    },
-  );
-  await createSession({ homeId: home._id });
-  return { recoveryCode: formatRecoveryCode(next) };
+/** A new invite code for the home; the old one (and its link) stops working at once. */
+export async function regenerateInviteAction(): Promise<ActionResult<{ inviteCode: string }>> {
+  try {
+    const homeId = await requireOwner();
+    const { homes } = await collections();
+    const inviteCode = await withFreshInviteCode((code) => homes.updateOne({ _id: homeId }, { $set: { inviteCode: code } }));
+    refresh();
+    return { ok: true, data: { inviteCode } };
+  } catch (err) {
+    return { ok: false, error: errorMessage(err) };
+  }
 }

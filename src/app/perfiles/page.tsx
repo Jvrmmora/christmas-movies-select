@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Garland, Snowfall } from "@/components/shell/decor";
-import { getHome, getProfiles } from "@/lib/dal";
+import { getHome, getMovieCount, getOwnProfileId, getProfiles } from "@/lib/dal";
 import { ProfilePicker } from "./profile-picker";
 
 export const metadata: Metadata = { title: "¿Quién está viendo?" };
@@ -30,6 +30,8 @@ async function Picker({ searchParams }: { searchParams: PageProps<"/perfiles">["
   // Only same-site paths: this value ends up in router.replace().
   const next = raw.startsWith("/") && !raw.startsWith("//") ? raw : "/";
   const editId = typeof params.editar === "string" ? params.editar : undefined;
-  const [home, profiles] = await Promise.all([getHome(), getProfiles()]);
-  return <ProfilePicker home={home} profiles={profiles} next={next} editId={editId} />;
+  const [home, profiles, ownId, movieCount] = await Promise.all([getHome(), getProfiles(), getOwnProfileId(), getMovieCount()]);
+  // Right after setting up their own profile, an empty home gets a few classics to start with.
+  const afterSetup = movieCount === 0 ? "/bienvenida/peliculas" : next;
+  return <ProfilePicker home={home} profiles={profiles} ownId={ownId} next={next} afterSetup={afterSetup} editId={editId} />;
 }

@@ -87,15 +87,18 @@ export interface Profile {
   id: string;
   name: string;
   avatar: Avatar;
+  /** Belongs to someone's account; only that account can watch as it. */
+  hasAccount: boolean;
 }
 
 export interface HomeInfo {
   id: string;
-  slug: string;
   name: string;
+  inviteCode: string;
 }
 
 export interface AdminHome extends HomeInfo {
+  accounts: number;
   profiles: number;
   movies: number;
   createdAt: string;

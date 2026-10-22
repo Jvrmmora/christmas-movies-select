@@ -296,6 +296,9 @@ function EmptyWelcome() {
         <Link href="/peliculas/nueva" className="nv-press inline-flex h-12 items-center rounded-[14px] border border-line bg-surface px-5 text-[15px] font-semibold text-ink">
           Agregar una película
         </Link>
+        <Link href="/bienvenida/peliculas" className="nv-press inline-flex h-12 items-center rounded-[14px] border border-line bg-surface px-5 text-[15px] font-semibold text-ink">
+          Ver clásicas para empezar
+        </Link>
       </div>
     </section>
   );

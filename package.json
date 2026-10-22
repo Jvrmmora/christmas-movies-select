@@ -8,8 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "seed": "tsx --conditions=react-server --env-file=.env.local scripts/seed-list.mts",
-    "set:email": "tsx --conditions=react-server --env-file=.env.local scripts/set-home-email.mts",
-    "migrate:homes": "tsx --conditions=react-server --env-file=.env.local scripts/migrate-homes.mts",
+    "migrate:accounts": "tsx --conditions=react-server --env-file=.env.local scripts/migrate-accounts.mts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "demo": "MONGODB_DB=christmas-movies-demo tsx --conditions=react-server --env-file=.env.local scripts/demo.mts"

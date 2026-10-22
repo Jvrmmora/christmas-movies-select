@@ -148,9 +148,9 @@ function ProfileMenu({ profile, home }: { profile: Profile | null; home: HomeInf
   // Still loading (Suspense fallback): keep the slot so the header doesn't jump.
   if (!profile || !home) return <span aria-hidden className="size-10 rounded-full bg-surface-2" />;
 
-  async function copyCode() {
+  async function copyInvite() {
     try {
-      await navigator.clipboard.writeText(home!.slug);
+      await navigator.clipboard.writeText(`${window.location.origin}/unirse/${home!.inviteCode}`);
       setCopied(true);
       setTimeout(() => setCopied(false), 1600);
     } catch {
@@ -190,10 +190,9 @@ function ProfileMenu({ profile, home }: { profile: Profile | null; home: HomeInf
             <Pencil className="size-[18px] text-ink-2" strokeWidth={1.8} aria-hidden />
             Editar mi perfil
           </Link>
-          <button type="button" role="menuitem" onClick={copyCode} className={menuItem}>
+          <button type="button" role="menuitem" onClick={copyInvite} className={menuItem}>
             {copied ? <Check className="size-[18px] text-pine" strokeWidth={2} aria-hidden /> : <Copy className="size-[18px] text-ink-2" strokeWidth={1.8} aria-hidden />}
-            <span className="flex-1">Código de la casa</span>
-            <span className="min-w-0 truncate font-mono text-sm text-ink-2">{home.slug}</span>
+            <span className="flex-1">{copied ? "Link copiado" : "Copiar link de invitación"}</span>
           </button>
           <Link role="menuitem" href="/ajustes" onClick={() => setOpen(false)} className={menuItem}>
             <Settings className="size-[18px] text-ink-2" strokeWidth={1.8} aria-hidden />
@@ -203,7 +202,7 @@ function ProfileMenu({ profile, home }: { profile: Profile | null; home: HomeInf
           <form action={logoutAction}>
             <button type="submit" role="menuitem" className={`${menuItem} text-berry-ink`}>
               <LogOut className="size-[18px]" strokeWidth={1.8} aria-hidden />
-              Salir de la casa
+              Cerrar sesión
             </button>
           </form>
         </div>

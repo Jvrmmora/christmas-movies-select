@@ -20,7 +20,7 @@ export function AdminPanel({ overview }: { overview: AdminOverview }) {
         <div>
           <h1 className="font-display text-[28px] leading-tight font-bold tracking-[-0.03em]">Administración</h1>
           <p className="text-sm text-ink-2">
-            {homes.length} de {cap} casas · cualquiera puede crear una (máx. 3 por día desde la misma conexión)
+            {homes.length} de {cap} casas · cualquiera puede crear una cuenta y una casa (máx. 3 por día desde la misma conexión)
           </p>
         </div>
         <form action={adminLogoutAction} className="ml-auto">
@@ -60,9 +60,9 @@ function HomeRow({ home }: { home: AdminHome }) {
     <li className="flex flex-col gap-3 px-4 py-3">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <span className="font-semibold">{home.name}</span>
-        <span className="font-mono text-sm text-ink-2">{home.slug}</span>
+        <span className="font-mono text-sm text-ink-2">{home.inviteCode}</span>
         <span className="text-sm text-ink-2">
-          {home.profiles} {home.profiles === 1 ? "perfil" : "perfiles"} · {home.movies} {home.movies === 1 ? "película" : "películas"}
+          {home.accounts} {home.accounts === 1 ? "cuenta" : "cuentas"} · {home.profiles} {home.profiles === 1 ? "perfil" : "perfiles"} · {home.movies} {home.movies === 1 ? "película" : "películas"}
         </span>
         <span className="text-sm text-ink-2">Activa: {day(home.lastActiveAt)}</span>
         <button
@@ -88,16 +88,16 @@ function HomeRow({ home }: { home: AdminHome }) {
           }}
         >
           <label htmlFor={`confirm-${home.id}`} className="text-sm">
-            Borra la casa, sus perfiles, películas y calendario. Escribe <strong className="font-mono">{home.slug}</strong> para confirmar:
+            Borra la casa, sus perfiles, películas y calendario. Escribe <strong>{home.name}</strong> para confirmar:
           </label>
           <input
             id={`confirm-${home.id}`}
             value={typed}
             onChange={(e) => setTyped(e.target.value)}
             autoComplete="off"
-            className="h-10 min-w-0 flex-1 rounded-[10px] border border-line bg-field px-3 font-mono text-sm"
+            className="h-10 min-w-0 flex-1 rounded-[10px] border border-line bg-field px-3 text-sm"
           />
-          <button type="submit" disabled={pending || typed.trim().toLowerCase() !== home.slug} className="nv-press h-10 rounded-full bg-berry px-4 text-sm font-semibold text-white disabled:opacity-50">
+          <button type="submit" disabled={pending || typed.trim().toLowerCase() !== home.name.trim().toLowerCase()} className="nv-press h-10 rounded-full bg-berry px-4 text-sm font-semibold text-white disabled:opacity-50">
             Eliminar
           </button>
         </form>

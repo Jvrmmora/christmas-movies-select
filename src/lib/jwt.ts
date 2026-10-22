@@ -2,7 +2,7 @@ import { SignJWT, jwtVerify } from "jose";
 
 // Shared by proxy.ts and server code, so it must not import "server-only".
 
-/** Which home you signed in to. */
+/** Which account signed in, and the home it belonged to then. */
 export const SESSION_COOKIE = "nv_session";
 export const SESSION_DAYS = 30;
 /** Who is watching on this device, inside that home. */
@@ -13,7 +13,9 @@ export const ADMIN_COOKIE = "nv_admin";
 export const ADMIN_HOURS = 12;
 
 export interface SessionPayload {
-  homeId: string;
+  userId: string;
+  /** Null until the account creates or joins a home. A hint for routing: the database has the final word. */
+  homeId: string | null;
 }
 
 export interface ProfilePayload {
@@ -41,14 +43,15 @@ async function verify(token: string | undefined): Promise<Record<string, unknown
   }
 }
 
-export function signSession(payload: SessionPayload) {
-  return sign({ kind: "home", ...payload }, `${SESSION_DAYS}d`);
+export function signSession({ userId, homeId }: SessionPayload) {
+  return sign(homeId ? { kind: "user", userId, homeId } : { kind: "user", userId }, `${SESSION_DAYS}d`);
 }
 
-/** Tokens from before multi-home (they carried ownerId) fail this check, so those sessions sign in again once. */
+/** Tokens from before personal accounts (kind "home") fail this check, so those sessions sign in again once. */
 export async function verifySessionToken(token: string | undefined): Promise<SessionPayload | null> {
   const p = await verify(token);
-  return p?.kind === "home" && typeof p.homeId === "string" ? { homeId: p.homeId } : null;
+  if (p?.kind !== "user" || typeof p.userId !== "string") return null;
+  return { userId: p.userId, homeId: typeof p.homeId === "string" ? p.homeId : null };
 }
 
 export function signProfile(payload: ProfilePayload) {
