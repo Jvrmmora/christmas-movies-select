@@ -5,7 +5,8 @@ import { DEFAULT_HOME_CAP, homeCap, inactiveCutoff, RATE_RULES } from "./limits"
 import { splitDisplayName } from "./display-name";
 import { homeSlugFromName, slugCandidates, slugify } from "./slug";
 import { CHARACTERS, starterAvatar, BACKGROUND_IDS } from "./avatar";
-import { avatarSchema, homeInputSchema, homeSlugSchema, profileInputSchema } from "./validation";
+import { avatarSchema, homeEmailSchema, homeInputSchema, homeSettingsSchema, homeSlugSchema, profileInputSchema, resetCodeSchema } from "./validation";
+import { generateResetCode, resetExpiry, RESET_TTL_MINUTES } from "./reset-code";
 
 describe("password hashing", () => {
   it("accepts the right secret and rejects the wrong one", async () => {
@@ -153,9 +154,49 @@ describe("home input", () => {
   });
 
   it("requires a name and a password of at least 6 characters", () => {
-    const ok = { name: "Casa Montaño", slug: "casa-montano", password: "navidad" };
+    const ok = { name: "Casa Montaño", email: "familia@correo.com", slug: "casa-montano", password: "navidad" };
     expect(homeInputSchema.safeParse(ok).success).toBe(true);
     expect(homeInputSchema.safeParse({ ...ok, password: "12345" }).success).toBe(false);
     expect(homeInputSchema.safeParse({ ...ok, name: "  " }).success).toBe(false);
+  });
+});
+
+describe("e-mail for password recovery", () => {
+  it("lowercases and trims, so the same address is always the same key", () => {
+    expect(homeEmailSchema.parse("  NamaDopi@Gmail.com ")).toBe("namadopi@gmail.com");
+  });
+
+  it("rejects things that are not an address", () => {
+    for (const bad of ["", "sin-arroba", "a@", "@b.com", "a b@c.com"]) expect(homeEmailSchema.safeParse(bad).success).toBe(false);
+  });
+
+  it("sign-up needs name, e-mail, code and password", () => {
+    const ok = { name: "Casa Mora", email: "Mora@x.com", slug: "casa-mora", password: "navidad" };
+    expect(homeInputSchema.parse(ok).email).toBe("mora@x.com");
+    expect(homeInputSchema.safeParse({ ...ok, email: undefined }).success).toBe(false);
+  });
+
+  it("settings validate the name and the sign-in code", () => {
+    expect(homeSettingsSchema.parse({ name: " Casa Mora ", slug: "Casa-Mora" })).toEqual({ name: "Casa Mora", slug: "casa-mora" });
+    expect(homeSettingsSchema.safeParse({ name: "", slug: "casa-mora" }).success).toBe(false);
+    expect(homeSettingsSchema.safeParse({ name: "Casa", slug: "no válido!" }).success).toBe(false);
+  });
+});
+
+describe("password reset codes", () => {
+  it("are six digits, zero-padded", () => {
+    for (let i = 0; i < 50; i++) expect(generateResetCode()).toMatch(/^\d{6}$/);
+  });
+
+  it("accept spaces and dashes when typed", () => {
+    expect(resetCodeSchema.parse("123 456")).toBe("123456");
+    expect(resetCodeSchema.parse("123-456")).toBe("123456");
+    expect(resetCodeSchema.safeParse("12345").success).toBe(false);
+    expect(resetCodeSchema.safeParse("12345a").success).toBe(false);
+  });
+
+  it("expire after the advertised minutes", () => {
+    const now = new Date("2026-12-01T10:00:00Z");
+    expect(resetExpiry(now).getTime() - now.getTime()).toBe(RESET_TTL_MINUTES * 60_000);
   });
 });

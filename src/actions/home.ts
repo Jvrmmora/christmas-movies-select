@@ -12,7 +12,7 @@ import { createSession } from "@/lib/session";
 import { homeSlugFromName, slugCandidates } from "@/lib/slug";
 import { firstIssue, homeInputSchema, homePasswordSchema, homeSlugSchema } from "@/lib/validation";
 
-/** The recovery code is returned once and only its hash is kept, so there is no way to show it again. */
+/** The recovery code (only legacy homes without an e-mail use one) is returned once; only its hash is kept. */
 export interface HomeFormState {
   error?: string;
   recoveryCode?: string;
@@ -22,11 +22,15 @@ export interface HomeFormState {
 
 const FULL = "Por ahora no hay lugar para más casas. Intenten más tarde.";
 const TAKEN = "Ese código de casa ya lo usa otra familia. Prueba con otro.";
+const EMAIL_TAKEN = "Ese correo ya está registrado en otra casa.";
 
 const isDuplicate = (err: unknown) => !!err && typeof err === "object" && "code" in err && err.code === 11000;
+/** Which unique index a duplicate-key error came from. */
+const duplicateOn = (err: unknown, field: string) =>
+  !!err && typeof err === "object" && "keyPattern" in err && !!err.keyPattern && typeof err.keyPattern === "object" && field in err.keyPattern;
 
 /**
- * Open sign-up: name + password. The home code is suggested from the name; when the person kept the
+ * Open sign-up: name + e-mail + password. The home code is suggested from the name; when the person kept the
  * suggestion and it is taken, the next free variant is used (casa-montano-2 …). Protected by a per-IP
  * daily limit and the global HOME_CAP.
  */
@@ -35,6 +39,7 @@ export async function createHomeAction(_prev: HomeFormState, formData: FormData)
   const auto = formData.get("slugAuto") === "1";
   const parsed = homeInputSchema.safeParse({
     name,
+    email: formData.get("email"),
     slug: auto ? homeSlugFromName(name) : formData.get("slug"),
     password: formData.get("password"),
   });
@@ -50,18 +55,19 @@ export async function createHomeAction(_prev: HomeFormState, formData: FormData)
 
   const now = new Date();
   const homeId = randomUUID();
-  const recovery = generateRecoveryCode();
-  const [passwordHash, recoveryHash] = await Promise.all([hashSecret(input.password), hashSecret(recovery)]);
+  const passwordHash = await hashSecret(input.password);
   const candidates = auto ? slugCandidates(input.slug, randomSlugSuffix) : [input.slug];
 
   let slug: string | null = null;
   try {
     for (const candidate of candidates) {
       try {
-        await homes.insertOne({ _id: homeId, slug: candidate, name: input.name, passwordHash, recoveryHash, createdAt: now, lastActiveAt: now });
+        await homes.insertOne({ _id: homeId, slug: candidate, name: input.name, email: input.email, passwordHash, createdAt: now, lastActiveAt: now });
         slug = candidate;
         break;
       } catch (err) {
+        // A taken e-mail won't get better with another code.
+        if (duplicateOn(err, "email")) return { error: EMAIL_TAKEN };
         // Unique index on slug: try the next variant (or report it when the person chose the code).
         if (!isDuplicate(err)) throw err;
       }
@@ -81,7 +87,7 @@ export async function createHomeAction(_prev: HomeFormState, formData: FormData)
 
   await limiter.hit(ipKey, RATE_RULES.signup);
   await createSession({ homeId });
-  return { recoveryCode: formatRecoveryCode(recovery), slug };
+  return { slug };
 }
 
 export async function recoverAccessAction(_prev: HomeFormState, formData: FormData): Promise<HomeFormState> {
@@ -96,7 +102,7 @@ export async function recoverAccessAction(_prev: HomeFormState, formData: FormDa
 
   const { homes } = await collections();
   const home = slug.success ? await homes.findOne({ slug: slug.data }) : null;
-  const ok = !!home && !!recoveryInput && (await verifySecret(recoveryInput, home.recoveryHash));
+  const ok = !!home?.recoveryHash && !!recoveryInput && (await verifySecret(recoveryInput, home.recoveryHash));
   if (!home || !ok) {
     await limiter.hit(key, RATE_RULES.recovery);
     await new Promise((r) => setTimeout(r, 600));
