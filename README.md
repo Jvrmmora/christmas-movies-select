@@ -77,6 +77,8 @@ Next.js 16 · MongoDB Atlas · datos automáticos de JustWatch, sin IA ni API ke
 
 **Registrarse tiene dos pasos.** En `/unirse` se pide solo **correo y clave**. Luego, en `/bienvenida`, se **crea una casa** (solo el nombre) o se **une a una** con su código. El link `/unirse/NAVI-XXXX-XXXX` lleva el código hasta el segundo paso y muestra «Te invitaron a …». Al entrar a una casa que ya tiene perfiles se pregunta «¿Cuál eres tú?» para tomar uno existente o crear el propio. Cada cuenta pertenece a una sola casa.
 
+Al registrarse llega un **correo de bienvenida** con el botón para seguir al paso 2 (si vino por invitación, «Unirme a Casa …»). Se envía después de responder, así que un problema con el correo nunca frena el registro.
+
 **Entrar** es con correo y clave; si la cuenta ya tiene perfil, se elige solo.
 
 **Olvidé la clave.** En `/recuperar` escriben su correo y reciben (con [nodemailer](https://nodemailer.com)) un código de 6 números que vence en 15 minutos; con él eligen la clave nueva. La respuesta es la misma exista o no la cuenta. El código se guarda solo como hash, admite 5 intentos y se pide como máximo 3 veces por hora por correo.
