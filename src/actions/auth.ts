@@ -1,13 +1,17 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { clientIp } from "@/lib/client-ip";
 import { collections } from "@/lib/db";
+import { findHomeByInvite } from "@/lib/homes";
 import { normalizeInviteCode } from "@/lib/invite-code";
 import { homeCap, LIMITS, RATE_RULES } from "@/lib/limits";
 import { hashSecret, verifySecret } from "@/lib/password";
 import { tooManyAttempts } from "@/lib/rate-limit";
+import { canSendMail, sendWelcome } from "@/lib/mailer";
 import { limiter } from "@/lib/rate-limit-store";
 import { createProfileSession, createSession, deleteSession } from "@/lib/session";
 import { accountInputSchema, emailSchema, firstIssue } from "@/lib/validation";
@@ -32,6 +36,17 @@ function safeNext(value: FormDataEntryValue | null): string {
 function welcomePath(code: FormDataEntryValue | null): string {
   const invite = normalizeInviteCode(typeof code === "string" ? code : "");
   return invite ? `/bienvenida?codigo=${invite}` : "/bienvenida";
+}
+
+/**
+ * Base for links in e-mails. In production the fixed project domain, never the request's Host header,
+ * so nobody can make the welcome e-mail point somewhere else.
+ */
+async function appOrigin(): Promise<string> {
+  const prod = process.env.VERCEL_PROJECT_PRODUCTION_URL;
+  if (prod) return `https://${prod}`;
+  if (process.env.NODE_ENV === "production") return "https://christmas-movies-select.vercel.app";
+  return `http://${(await headers()).get("host") ?? "localhost:3000"}`;
 }
 
 /** Signs the account in and, when it already has its own profile in its home, picks that profile too. */
@@ -105,7 +120,21 @@ export async function signUpAction(_prev: LoginState, formData: FormData): Promi
 
   await limiter.hit(ipKey, RATE_RULES.signup);
   await createSession({ userId, homeId: null });
-  redirect(welcomePath(formData.get("codigo")));
+  const next = welcomePath(formData.get("codigo"));
+  if (canSendMail()) {
+    const origin = await appOrigin();
+    const email = parsed.data.email;
+    // After the response, so sign-up never waits on (or fails because of) the mail server.
+    after(async () => {
+      try {
+        const invite = await findHomeByInvite(normalizeInviteCode(String(formData.get("codigo") ?? "")));
+        await sendWelcome(email, origin + next, invite?.name);
+      } catch (err) {
+        console.error("No se pudo enviar el correo de bienvenida", err);
+      }
+    });
+  }
+  redirect(next);
 }
 
 export async function logoutAction() {

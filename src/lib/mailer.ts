@@ -19,10 +19,18 @@ export function canSendMail(): boolean {
 
 const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
-export async function sendResetCode(to: string, code: string): Promise<void> {
+interface Mail {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+}
+
+/** Sends one e-mail, or prints it in the terminal when SMTP isn't set up (development). */
+async function send(mail: Mail, devNote: string): Promise<void> {
   const cfg = config();
   if (!cfg) {
-    console.info(`[mail] Código para ${to}: ${code} (SMTP sin configurar, no se envió)`);
+    console.info(`[mail] ${devNote} (SMTP sin configurar, no se envió)`);
     return;
   }
   const transport = nodemailer.createTransport({
@@ -31,16 +39,54 @@ export async function sendResetCode(to: string, code: string): Promise<void> {
     secure: cfg.port === 465,
     auth: { user: cfg.user, pass: cfg.pass },
   });
-  await transport.sendMail({
-    from: cfg.from,
-    to,
-    subject: `${code} es tu código de Navidad en casa`,
-    text: `Tu código para cambiar la clave de tu cuenta (${to}) es ${code}.\n\nVence en ${RESET_TTL_MINUTES} minutos. Si no lo pediste tú, ignora este correo: nadie puede entrar sin él.`,
-    html: `<div style="font-family:system-ui,sans-serif;max-width:420px;margin:auto;color:#1c1c1e">
+  await transport.sendMail({ from: cfg.from, ...mail });
+}
+
+/** The shared look of every e-mail: brand line on top, plain system font, narrow column. */
+function layout(body: string): string {
+  return `<div style="font-family:system-ui,sans-serif;max-width:420px;margin:auto;color:#1c1c1e">
   <h2 style="margin:0 0 8px">🎄 Navidad en casa</h2>
-  <p>Tu código para cambiar la clave de <strong>${escapeHtml(to)}</strong>:</p>
+${body}
+</div>`;
+}
+
+const button = (href: string, label: string) =>
+  `<p style="margin:20px 0"><a href="${escapeHtml(href)}" style="display:inline-block;background:#c8102e;color:#fff;text-decoration:none;font-weight:600;padding:12px 20px;border-radius:12px">${escapeHtml(label)}</a></p>`;
+
+export async function sendResetCode(to: string, code: string): Promise<void> {
+  await send(
+    {
+      to,
+      subject: `${code} es tu código de Navidad en casa`,
+      text: `Tu código para cambiar la clave de tu cuenta (${to}) es ${code}.\n\nVence en ${RESET_TTL_MINUTES} minutos. Si no lo pediste tú, ignora este correo: nadie puede entrar sin él.`,
+      html: layout(`  <p>Tu código para cambiar la clave de <strong>${escapeHtml(to)}</strong>:</p>
   <p style="font-size:34px;letter-spacing:8px;font-weight:700;margin:16px 0">${code}</p>
-  <p style="color:#6b6b70;font-size:14px">Vence en ${RESET_TTL_MINUTES} minutos. Si no lo pediste tú, ignora este correo: nadie puede entrar sin él.</p>
-</div>`,
-  });
+  <p style="color:#6b6b70;font-size:14px">Vence en ${RESET_TTL_MINUTES} minutos. Si no lo pediste tú, ignora este correo: nadie puede entrar sin él.</p>`),
+    },
+    `Código para ${to}: ${code}`,
+  );
+}
+
+/**
+ * Right after sign-up. `next` is where step 2 continues (with the invite code when they came from a link);
+ * `homeName` is the home that invited them, if any.
+ */
+export async function sendWelcome(to: string, next: string, homeName?: string): Promise<void> {
+  const intro = (name: string) =>
+    homeName
+      ? `Ya tienes tu cuenta. Te invitaron a ${name}: entra, únete y elige tu perfil para ver juntos las películas de esta Navidad.`
+      : "Ya tienes tu cuenta. Ahora crea la casa de tu familia, o únete a una con su código de invitación, y arma la lista de películas de esta Navidad.";
+  await send(
+    {
+      to,
+      subject: homeName ? `Bienvenido a Navidad en casa: te esperan en ${homeName}` : "Bienvenido a Navidad en casa 🎄",
+      text: `¡Hola!\n\n${intro(homeName ?? "")}\n\nSigue aquí: ${next}\n\nEntras siempre con este correo (${to}) y tu clave. Si la olvidas, te enviamos un código a este correo.`,
+      html: layout(`  <p>¡Hola!</p>
+  <p>${intro(`<strong>${escapeHtml(homeName ?? "")}</strong>`)}</p>
+${button(next, homeName ? `Unirme a ${homeName}` : "Seguir")}
+  <p>Con Navidad en casa tienen dónde ver cada película en Colombia, cuáles ya vieron y un calendario de adviento con una película por día hasta Nochebuena.</p>
+  <p style="color:#6b6b70;font-size:14px">Entras siempre con este correo (${escapeHtml(to)}) y tu clave. Si la olvidas, te enviamos un código a este correo.</p>`),
+    },
+    `Bienvenida para ${to} → ${next}`,
+  );
 }
