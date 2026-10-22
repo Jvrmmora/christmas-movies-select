@@ -61,6 +61,30 @@ export const CHRISTMAS_CATALOG: { title: string; year: number }[] = [
   { title: "Nutcrackers", year: 2024 },
 ];
 
+/** The best-known classics, offered once right after a home's first profile so the library doesn't start empty. */
+export const STARTER_PICKS: { title: string; year: number }[] = [
+  { title: "Home Alone", year: 1990 },
+  { title: "Home Alone 2: Lost in New York", year: 1992 },
+  { title: "How the Grinch Stole Christmas", year: 2000 },
+  { title: "Elf", year: 2003 },
+  { title: "The Polar Express", year: 2004 },
+  { title: "Love Actually", year: 2003 },
+  { title: "Klaus", year: 2019 },
+  { title: "The Santa Clause", year: 1994 },
+];
+
+/** STARTER_PICKS with posters and data, in the same order. Cached and shared like the suggestion pool. */
+export async function getStarterPicks(): Promise<Candidate[]> {
+  "use cache";
+  cacheLife({ stale: 3600, revalidate: 43200, expire: 604800 });
+  cacheTag("starter");
+
+  const found = (await searchBatch(STARTER_PICKS)).filter((c): c is Candidate => !!c);
+  // An empty answer means JustWatch failed: throw so a failure is never cached.
+  if (!found.length) throw new MetadataError("No pudimos cargar las películas sugeridas.");
+  return found;
+}
+
 /**
  * Candidate pool for the "Sugeridas" page. Cached and shared: it knows nothing about
  * who is asking; the library is subtracted per request.

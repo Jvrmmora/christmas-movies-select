@@ -13,21 +13,30 @@ function redirectTo(request: NextRequest, path: string, next?: string) {
   return NextResponse.redirect(url);
 }
 
-// Optimistic gate, in two steps: signed in to a home → picked a profile. Data reads and Server
+// Optimistic gate, in three steps: signed in → has a home → picked a profile. Data reads and Server
 // Actions verify the session again on their own (a cookie here only says "looks signed").
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const session = await verifySessionToken(request.cookies.get(SESSION_COOKIE)?.value);
-  const profile = session ? await verifyProfileToken(request.cookies.get(PROFILE_COOKIE)?.value) : null;
-  const hasProfile = !!session && profile?.homeId === session.homeId;
+  const profile = session?.homeId ? await verifyProfileToken(request.cookies.get(PROFILE_COOKIE)?.value) : null;
+  const hasProfile = !!session?.homeId && profile?.homeId === session.homeId;
+  const home = !session?.homeId ? "/bienvenida" : hasProfile ? "/" : "/perfiles";
 
-  if (pathname === "/login") {
-    if (!session) return NextResponse.next();
-    return redirectTo(request, hasProfile ? "/" : "/perfiles");
+  // Signed in already: sign-in and invite links go straight on, keeping the invite code for step 2.
+  const isSignUp = pathname === "/unirse" || pathname.startsWith("/unirse/");
+  if (session && (pathname === "/login" || isSignUp)) {
+    const code = isSignUp ? pathname.split("/")[2] : request.nextUrl.searchParams.get("codigo");
+    const url = new URL(home, request.url);
+    if (code && !session.homeId) url.searchParams.set("codigo", code);
+    return NextResponse.redirect(url);
   }
+  if (pathname === "/login") return NextResponse.next();
   if (isPublic(pathname)) return NextResponse.next();
 
   if (!session) return redirectTo(request, "/login", pathname + search);
+  // Step 2 (create or join a home) decides on its own what to show.
+  if (pathname === "/bienvenida") return NextResponse.next();
+  if (!session.homeId) return redirectTo(request, "/bienvenida");
   if (pathname === "/perfiles") return NextResponse.next();
   if (!hasProfile) return redirectTo(request, "/perfiles", pathname + search);
   return NextResponse.next();

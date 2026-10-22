@@ -19,7 +19,7 @@ export function canSendMail(): boolean {
 
 const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
-export async function sendResetCode(to: string, code: string, homeName: string): Promise<void> {
+export async function sendResetCode(to: string, code: string): Promise<void> {
   const cfg = config();
   if (!cfg) {
     console.info(`[mail] Código para ${to}: ${code} (SMTP sin configurar, no se envió)`);
@@ -35,10 +35,10 @@ export async function sendResetCode(to: string, code: string, homeName: string):
     from: cfg.from,
     to,
     subject: `${code} es tu código de Navidad en casa`,
-    text: `Tu código para cambiar la clave de ${homeName} es ${code}.\n\nVence en ${RESET_TTL_MINUTES} minutos. Si no lo pediste tú, ignora este correo: nadie puede entrar sin él.`,
+    text: `Tu código para cambiar la clave de tu cuenta (${to}) es ${code}.\n\nVence en ${RESET_TTL_MINUTES} minutos. Si no lo pediste tú, ignora este correo: nadie puede entrar sin él.`,
     html: `<div style="font-family:system-ui,sans-serif;max-width:420px;margin:auto;color:#1c1c1e">
   <h2 style="margin:0 0 8px">🎄 Navidad en casa</h2>
-  <p>Tu código para cambiar la clave de <strong>${escapeHtml(homeName)}</strong>:</p>
+  <p>Tu código para cambiar la clave de <strong>${escapeHtml(to)}</strong>:</p>
   <p style="font-size:34px;letter-spacing:8px;font-weight:700;margin:16px 0">${code}</p>
   <p style="color:#6b6b70;font-size:14px">Vence en ${RESET_TTL_MINUTES} minutos. Si no lo pediste tú, ignora este correo: nadie puede entrar sin él.</p>
 </div>`,

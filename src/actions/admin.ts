@@ -46,15 +46,15 @@ export async function adminLogoutAction() {
   redirect("/admin");
 }
 
-/** Removes a home and everything it owns. The caller must type the home's slug to confirm. */
-export async function deleteHomeAction(homeId: string, confirmSlug: string): Promise<ActionResult> {
+/** Removes a home and everything it owns. The caller must type the home's name to confirm. */
+export async function deleteHomeAction(homeId: string, confirmName: string): Promise<ActionResult> {
   try {
     await requireAdmin();
     const { homes } = await collections();
     const home = await homes.findOne({ _id: String(homeId) });
     if (!home) return { ok: false, error: "Esa casa ya no existe." };
-    if (home.slug !== String(confirmSlug).trim().toLowerCase()) {
-      return { ok: false, error: "Escribe el código de la casa tal como aparece para confirmar." };
+    if (home.name.trim().toLowerCase() !== String(confirmName).trim().toLowerCase()) {
+      return { ok: false, error: "Escribe el nombre de la casa tal como aparece para confirmar." };
     }
     await deleteHomeCascade(home._id);
     refresh();

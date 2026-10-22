@@ -1,62 +1,35 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useRef } from "react";
-import { House, LockKeyhole } from "lucide-react";
+import { useActionState } from "react";
+import { LockKeyhole, Mail } from "lucide-react";
 import { loginAction, type LoginState } from "@/actions/auth";
 import { Field, FormError, SubmitButton } from "@/components/auth/fields";
 
-const SLUG_KEY = "nv-home-slug";
-
-export function LoginForm({ next }: { next: string }) {
+export function LoginForm({ next, invite }: { next: string; invite?: string }) {
   const [state, action, pending] = useActionState<LoginState, FormData>(loginAction, {});
-  const form = useRef<HTMLFormElement>(null);
-
-  // Remember the home's code on this device so next time only the password is needed.
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(SLUG_KEY);
-      const slug = form.current?.elements.namedItem("slug") as HTMLInputElement | null;
-      if (saved && slug && !slug.value) {
-        slug.value = saved;
-        (form.current?.elements.namedItem("password") as HTMLInputElement | null)?.focus();
-      }
-    } catch {
-      /* storage can be blocked; the field just starts empty */
-    }
-  }, []);
 
   return (
-    <form
-      ref={form}
-      action={action}
-      onSubmit={(e) => {
-        try {
-          const slug = (e.currentTarget.elements.namedItem("slug") as HTMLInputElement).value.trim().toLowerCase();
-          if (slug) localStorage.setItem(SLUG_KEY, slug);
-        } catch {
-          /* ignore */
-        }
-      }}
-      className="mt-7 flex flex-col gap-4"
-    >
+    <form action={action} className="mt-7 flex flex-col gap-4">
       <input type="hidden" name="next" value={next} />
+      {invite && <input type="hidden" name="codigo" value={invite} />}
       <Field
-        id="slug"
-        label="Código de la casa"
-        icon={House}
-        type="text"
+        id="email"
+        label="Correo"
+        icon={Mail}
+        type="email"
         required
         autoFocus
+        maxLength={254}
         autoCapitalize="none"
         autoCorrect="off"
         spellCheck={false}
         autoComplete="username"
-        placeholder="casa-montano"
+        placeholder="tu@correo.com"
       />
-      <Field id="password" label="Clave" icon={LockKeyhole} type="password" required autoComplete="current-password" placeholder="Su clave" />
+      <Field id="password" label="Clave" icon={LockKeyhole} type="password" required autoComplete="current-password" placeholder="Tu clave" />
       <Link href="/recuperar" className="-mt-2 self-end text-[13px] font-semibold text-gold-ink underline-offset-4 hover:underline">
-        ¿Olvidaron la clave?
+        ¿Olvidaste la clave?
       </Link>
       <FormError>{state.error}</FormError>
       <SubmitButton pending={pending} idle="Entrar" busy="Entrando…" />
@@ -65,8 +38,11 @@ export function LoginForm({ next }: { next: string }) {
         ¿Primera vez?
         <span className="h-px flex-1 bg-line" />
       </div>
-      <Link href="/unirse" className="nv-press grid h-[52px] place-items-center rounded-[14px] border border-line text-base font-semibold text-ink hover:bg-surface">
-        Crear una casa nueva
+      <Link
+        href={invite ? `/unirse/${invite}` : "/unirse"}
+        className="nv-press grid h-[52px] place-items-center rounded-[14px] border border-line text-base font-semibold text-ink hover:bg-surface"
+      >
+        Crear una cuenta
       </Link>
     </form>
   );

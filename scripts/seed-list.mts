@@ -1,6 +1,6 @@
 /**
  * The household's initial list. Idempotent: existing title+year pairs are skipped.
- * Run: pnpm seed [--slug casa-montano]   (needs .env.local; without --slug it fills the original home).
+ * Run: pnpm seed [--email tu@correo.com]   (needs .env.local; without --email it fills the original home).
  * Also used by scripts/demo.mts.
  */
 import { parseArgs } from "node:util";
@@ -127,12 +127,12 @@ export async function seedList(ownerId: string = LEGACY_HOME_ID) {
 }
 
 async function homeFromArgs(): Promise<string> {
-  const { values } = parseArgs({ options: { slug: { type: "string" } } });
-  if (!values.slug) return LEGACY_HOME_ID;
-  const { homes } = await collections();
-  const home = await homes.findOne({ slug: values.slug.toLowerCase() });
-  if (!home) throw new Error(`No hay una casa con el código "${values.slug}".`);
-  return home._id;
+  const { values } = parseArgs({ options: { email: { type: "string" } } });
+  if (!values.email) return LEGACY_HOME_ID;
+  const { users } = await collections();
+  const user = await users.findOne({ email: values.email.trim().toLowerCase() });
+  if (!user?.homeId) throw new Error(`No hay una cuenta con casa para "${values.email}".`);
+  return user.homeId;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

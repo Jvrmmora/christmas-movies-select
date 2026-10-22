@@ -3,32 +3,44 @@ import { collections } from "@/lib/db";
 import { readAdminSession, readProfileSession, readSession } from "@/lib/session";
 
 export class UnauthorizedError extends Error {
-  constructor(message = "Tu sesión terminó. Vuelve a entrar con el código de tu casa y la clave.") {
+  constructor(message = "Tu sesión terminó. Vuelve a entrar con tu correo y tu clave.") {
     super(message);
   }
 }
 
-/** Server Actions are reachable by POST, so each one re-checks the session. Returns the home id. */
-export async function requireOwner(): Promise<string> {
+/**
+ * Server Actions are reachable by POST, so each one re-checks the session against the database:
+ * a deleted account, or one whose home was deleted, can't keep writing with a cookie that is still valid.
+ */
+export async function requireUser(): Promise<{ userId: string; homeId: string | null }> {
   const session = await readSession();
   if (!session) throw new UnauthorizedError();
-  // A deleted home keeps a valid cookie for up to 30 days; without this it could still write orphan data.
-  const { homes } = await collections();
-  if (!(await homes.countDocuments({ _id: session.homeId }, { limit: 1 }))) throw new UnauthorizedError();
-  return session.homeId;
+  const { users } = await collections();
+  const user = await users.findOne({ _id: session.userId }, { projection: { homeId: 1 } });
+  if (!user) throw new UnauthorizedError();
+  return { userId: user._id, homeId: user.homeId ?? null };
+}
+
+/** The signed-in account's home id; everything the home owns is stored under it. */
+export async function requireOwner(): Promise<string> {
+  const { homeId } = await requireUser();
+  if (!homeId) throw new UnauthorizedError("Primero crea una casa o únete a una.");
+  return homeId;
 }
 
 /**
- * Like requireOwner, but also proves who is acting: the profile cookie must belong to this very home
- * and the profile must still exist there (a deleted profile can't keep writing).
+ * Like requireOwner, but also proves who is acting: the profile cookie must belong to this very home,
+ * the profile must still exist there, and it must be loose or this account's own.
  */
 export async function requireProfile(): Promise<{ ownerId: string; profileId: string }> {
-  const ownerId = await requireOwner();
+  const { userId, homeId: ownerId } = await requireUser();
+  if (!ownerId) throw new UnauthorizedError("Primero crea una casa o únete a una.");
   const picked = await readProfileSession();
   if (!picked || picked.homeId !== ownerId) throw new UnauthorizedError("Elige quién eres en esta casa para continuar.");
   const { profiles } = await collections();
-  const exists = await profiles.countDocuments({ _id: picked.profileId, homeId: ownerId }, { limit: 1 });
-  if (!exists) throw new UnauthorizedError("Ese perfil ya no existe. Elige otro para continuar.");
+  const profile = await profiles.findOne({ _id: picked.profileId, homeId: ownerId }, { projection: { userId: 1 } });
+  if (!profile) throw new UnauthorizedError("Ese perfil ya no existe. Elige otro para continuar.");
+  if (profile.userId && profile.userId !== userId) throw new UnauthorizedError("Ese perfil es de otra persona. Elige el tuyo.");
   return { ownerId, profileId: picked.profileId };
 }
 

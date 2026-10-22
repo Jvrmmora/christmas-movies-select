@@ -1,25 +1,24 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { JoinForm } from "./join-form";
+import { findHomeByInvite } from "@/lib/homes";
+import { normalizeInviteCode } from "@/lib/invite-code";
+import { SignUpForm } from "./join-form";
 
-export const metadata: Metadata = { title: "Crear mi casa" };
+export const metadata: Metadata = { title: "Crear cuenta" };
 
-export default function JoinPage({ params }: PageProps<"/unirse/[[...codigo]]">) {
+// Step 1 of sign-up. /unirse/NAVI-XXXX-XXXX is an invite link: the code rides along to step 2.
+export default function SignUpPage({ params }: PageProps<"/unirse/[[...codigo]]">) {
   return (
-    <Suspense fallback={<CreateHome />}>
-      <OldInviteLink params={params} />
+    <Suspense fallback={<SignUpForm />}>
+      <WithInvite params={params} />
     </Suspense>
   );
 }
 
-function CreateHome() {
-  return <JoinForm />;
-}
-
-// Sign-up no longer needs an invite; old links like /unirse/NAVI-XXXX-XXXX land on the plain form.
-async function OldInviteLink({ params }: { params: PageProps<"/unirse/[[...codigo]]">["params"] }) {
+async function WithInvite({ params }: { params: PageProps<"/unirse/[[...codigo]]">["params"] }) {
   const { codigo } = await params;
-  if (codigo?.length) redirect("/unirse");
-  return <CreateHome />;
+  const code = normalizeInviteCode(codigo?.[0] ?? "");
+  const home = await findHomeByInvite(code);
+  // A wrong or outdated code still lets the person sign up; step 2 asks for the right one.
+  return <SignUpForm invite={home ?? undefined} staleInvite={!!codigo?.length && !home} />;
 }

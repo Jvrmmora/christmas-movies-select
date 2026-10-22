@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { LogOut, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { logoutAction } from "@/actions/auth";
-import { createProfileAction, deleteProfileAction, selectProfileAction, updateProfileAction } from "@/actions/profiles";
+import { claimProfileAction, createProfileAction, deleteProfileAction, selectProfileAction, updateProfileAction } from "@/actions/profiles";
 import { Avatar } from "@/components/avatars/avatar";
 import { AvatarEditor, type ProfileDraft } from "@/components/avatars/avatar-editor";
 import { CAST, randomAvatar } from "@/components/avatars/cast";
@@ -14,24 +14,43 @@ import { LIMITS } from "@/lib/limits";
 import { starterAvatar } from "@/lib/avatar";
 import type { HomeInfo, Profile } from "@/lib/types";
 
-type View = { kind: "pick" } | { kind: "create" } | { kind: "edit"; id: string };
+type View = { kind: "pick" } | { kind: "claim" } | { kind: "create"; own: boolean } | { kind: "edit"; id: string };
 
-export function ProfilePicker({ home, profiles, next, editId }: { home: HomeInfo; profiles: Profile[]; next: string; editId?: string }) {
+export function ProfilePicker({
+  home,
+  profiles,
+  ownId,
+  next,
+  afterSetup,
+  editId,
+}: {
+  home: HomeInfo;
+  profiles: Profile[];
+  /** This account's profile, or null while it hasn't claimed or created one. */
+  ownId: string | null;
+  next: string;
+  /** Where to go once the account has its own profile (the starter picks when the home is empty). */
+  afterSetup: string;
+  editId?: string;
+}) {
   const router = useRouter();
   const { play } = usePrefs();
   const [pending, start] = useTransition();
   const [manage, setManage] = useState(false);
   // Opened from the header's "Editar mi perfil": return to where they were once saved.
   const [returnAfterEdit] = useState(!!editId);
+  const loose = profiles.filter((p) => !p.hasAccount);
+  const room = profiles.length < LIMITS.profilesPerHome;
+  const usable = (p: Profile) => !p.hasAccount || p.id === ownId;
   const [view, setView] = useState<View>(() => {
-    if (profiles.length === 0) return { kind: "create" };
-    if (editId && profiles.some((p) => p.id === editId)) return { kind: "edit", id: editId };
+    if (!ownId) return loose.length ? { kind: "claim" } : { kind: "create", own: true };
+    if (editId && profiles.some((p) => p.id === editId && usable(p))) return { kind: "edit", id: editId };
     return { kind: "pick" };
   });
 
-  const enter = () => {
+  const enter = (to = next) => {
     play("jingle");
-    router.replace(next);
+    router.replace(to);
   };
 
   function choose(id: string) {
@@ -42,28 +61,68 @@ export function ProfilePicker({ home, profiles, next, editId }: { home: HomeInfo
     });
   }
 
+  function claim(id: string) {
+    start(async () => {
+      const res = await claimProfileAction(id);
+      if (res.ok) enter(afterSetup);
+      else toast.error(res.error);
+    });
+  }
+
+  if (view.kind === "claim") {
+    return (
+      <div className="nv-fade flex w-full flex-col items-center text-center">
+        <p className="text-sm font-semibold tracking-wide text-gold-ink uppercase">{home.name}</p>
+        <h1 className="mt-2 font-display text-[34px] leading-[1.1] font-bold tracking-[-0.035em] sm:text-[44px]">¿Cuál eres tú?</h1>
+        <p className="mt-2 max-w-md text-ink-2">Si ya tenías un perfil en esta casa, elígelo y queda ligado a tu cuenta. Si no, crea el tuyo.</p>
+        <ul className="mt-10 flex flex-wrap justify-center gap-x-4 gap-y-8">
+          {loose.map((p) => (
+            <li key={p.id}>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => claim(p.id)}
+                aria-label={`Soy ${p.name}`}
+                className="nv-av-host group flex w-[136px] flex-col items-center gap-2.5 rounded-2xl p-2 transition-transform duration-200 hover:-translate-y-1 focus-visible:-translate-y-1 active:scale-95 disabled:opacity-70"
+              >
+                <Avatar avatar={p.avatar} size={116} className="shadow-card ring-4 ring-transparent transition-shadow group-hover:ring-gold group-focus-visible:ring-gold" />
+                <span className="max-w-full truncate text-lg font-semibold">{p.name}</span>
+                <span className="text-[13px] font-semibold text-gold-ink">Soy yo</span>
+              </button>
+            </li>
+          ))}
+          {room && <AddTile label="Crear el mío" detail="Un perfil nuevo" onClick={() => setView({ kind: "create", own: true })} />}
+        </ul>
+        <div className="mt-12">
+          <LogoutButton />
+        </div>
+      </div>
+    );
+  }
+
   if (view.kind !== "pick") {
     const editing = view.kind === "edit" ? profiles.find((p) => p.id === view.id) : undefined;
-    const first = profiles.length === 0;
+    const own = view.kind === "create" && view.own;
+    const back = !ownId ? (loose.length ? () => setView({ kind: "claim" }) : undefined) : () => setView({ kind: "pick" });
     return (
       <Editor
-        key={view.kind === "edit" ? view.id : "new"}
-        title={first ? "Crea tu primer perfil" : editing ? "Editar perfil" : "Nuevo perfil"}
-        subtitle={first ? `Así sabremos quién agrega y sugiere cada película en ${home.name}.` : undefined}
-        initial={editing ? { name: editing.name, avatar: editing.avatar } : { name: "", avatar: first ? randomAvatar() : starterAvatar(profiles.length) }}
+        key={view.kind === "edit" ? view.id : own ? "own" : "new"}
+        title={own ? "Crea tu perfil" : editing ? "Editar perfil" : "Nuevo perfil"}
+        subtitle={
+          own ? `Así sabremos quién agrega y sugiere cada película en ${home.name}.` : editing ? undefined : "Para alguien de la casa sin cuenta, como los niños."
+        }
+        initial={editing ? { name: editing.name, avatar: editing.avatar } : { name: "", avatar: profiles.length === 0 ? randomAvatar() : starterAvatar(profiles.length) }}
         pending={pending}
-        onCancel={first ? undefined : () => setView({ kind: "pick" })}
-        canDelete={!!editing && profiles.length > 1}
+        onCancel={back}
+        canDelete={!!editing && !editing.hasAccount && profiles.length > 1}
         onSave={(draft) =>
           start(async () => {
-            const res = editing
-              ? await updateProfileAction(editing.id, draft)
-              : await createProfileAction(draft, first);
+            const res = editing ? await updateProfileAction(editing.id, draft) : await createProfileAction(draft, own);
             if (!res.ok) {
               toast.error(res.error);
               return;
             }
-            if (first) enter();
+            if (own) enter(afterSetup);
             else if (editing && returnAfterEdit) router.replace(next);
             else setView({ kind: "pick" });
           })
@@ -94,18 +153,23 @@ export function ProfilePicker({ home, profiles, next, editId }: { home: HomeInfo
       <ul className="mt-10 flex flex-wrap justify-center gap-x-4 gap-y-8">
         {profiles.map((p) => {
           const cast = CAST[p.avatar.character];
+          const mine = usable(p);
           return (
             <li key={p.id}>
               <button
                 type="button"
-                disabled={pending}
+                disabled={pending || !mine}
                 onClick={() => (manage ? setView({ kind: "edit", id: p.id }) : choose(p.id))}
-                aria-label={manage ? `Editar el perfil de ${p.name}` : `Entrar como ${p.name}, ${cast.name}`}
-                className="nv-av-host group flex w-[136px] flex-col items-center gap-2.5 rounded-2xl p-2 transition-transform duration-200 hover:-translate-y-1 focus-visible:-translate-y-1 active:scale-95 disabled:opacity-70"
+                aria-label={!mine ? `${p.name} (tiene su propia cuenta)` : manage ? `Editar el perfil de ${p.name}` : `Entrar como ${p.name}, ${cast.name}`}
+                className="nv-av-host group flex w-[136px] flex-col items-center gap-2.5 rounded-2xl p-2 transition-transform duration-200 enabled:hover:-translate-y-1 enabled:focus-visible:-translate-y-1 enabled:active:scale-95 disabled:opacity-70"
               >
                 <span className="relative">
-                  <Avatar avatar={p.avatar} size={116} className="shadow-card ring-4 ring-transparent transition-shadow group-hover:ring-gold group-focus-visible:ring-gold" />
-                  {manage && (
+                  <Avatar
+                    avatar={p.avatar}
+                    size={116}
+                    className={`shadow-card ring-4 ring-transparent transition-shadow ${mine ? "group-hover:ring-gold group-focus-visible:ring-gold" : "opacity-60 grayscale"}`}
+                  />
+                  {manage && mine && (
                     <span className="absolute inset-0 grid place-items-center rounded-full bg-black/55 text-white">
                       <Pencil className="size-7" strokeWidth={1.8} aria-hidden />
                     </span>
@@ -113,31 +177,20 @@ export function ProfilePicker({ home, profiles, next, editId }: { home: HomeInfo
                 </span>
                 <span className="max-w-full truncate text-lg font-semibold">{p.name}</span>
                 <span className="min-h-10 text-[13px] leading-snug text-ink-2">
-                  <span className="group-hover:hidden group-focus-visible:hidden">{cast.trait}</span>
-                  <span className="hidden group-hover:inline group-focus-visible:inline">«{cast.phrase}»</span>
+                  {!mine ? (
+                    "Tiene su cuenta"
+                  ) : (
+                    <>
+                      <span className="group-hover:hidden group-focus-visible:hidden">{p.id === ownId ? "Tú" : cast.trait}</span>
+                      <span className="hidden group-hover:inline group-focus-visible:inline">«{cast.phrase}»</span>
+                    </>
+                  )}
                 </span>
               </button>
             </li>
           );
         })}
-        {profiles.length < LIMITS.profilesPerHome && (
-          <li>
-            <button
-              type="button"
-              onClick={() => setView({ kind: "create" })}
-              aria-label="Añadir perfil"
-              className="group flex w-[136px] flex-col items-center gap-2.5 rounded-2xl p-2 transition-transform duration-200 hover:-translate-y-1 focus-visible:-translate-y-1 active:scale-95"
-            >
-              <span className="grid size-[116px] place-items-center rounded-full border-2 border-dashed border-ink-2 text-ink-2 transition-colors group-hover:border-gold group-hover:text-gold">
-                <Plus className="size-9" strokeWidth={1.6} aria-hidden />
-              </span>
-              <span className="text-lg font-semibold">Añadir perfil</span>
-              <span className="min-h-10 text-[13px] text-ink-2">
-                {profiles.length} de {LIMITS.profilesPerHome}
-              </span>
-            </button>
-          </li>
-        )}
+        {room && <AddTile label="Añadir perfil" detail={`${profiles.length} de ${LIMITS.profilesPerHome}`} onClick={() => setView({ kind: "create", own: false })} />}
       </ul>
 
       <div className="mt-12 flex flex-wrap justify-center gap-3">
@@ -149,14 +202,39 @@ export function ProfilePicker({ home, profiles, next, editId }: { home: HomeInfo
         >
           {manage ? "Listo" : "Administrar perfiles"}
         </button>
-        <form action={logoutAction}>
-          <button type="submit" className="nv-press flex h-11 items-center gap-2 rounded-full border border-line bg-surface px-5 text-[15px] font-semibold text-ink-2">
-            <LogOut className="size-4" strokeWidth={1.9} aria-hidden />
-            Salir de la casa
-          </button>
-        </form>
+        <LogoutButton />
       </div>
     </div>
+  );
+}
+
+function AddTile({ label, detail, onClick }: { label: string; detail: string; onClick: () => void }) {
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={label}
+        className="group flex w-[136px] flex-col items-center gap-2.5 rounded-2xl p-2 transition-transform duration-200 hover:-translate-y-1 focus-visible:-translate-y-1 active:scale-95"
+      >
+        <span className="grid size-[116px] place-items-center rounded-full border-2 border-dashed border-ink-2 text-ink-2 transition-colors group-hover:border-gold group-hover:text-gold">
+          <Plus className="size-9" strokeWidth={1.6} aria-hidden />
+        </span>
+        <span className="text-lg font-semibold">{label}</span>
+        <span className="min-h-10 text-[13px] text-ink-2">{detail}</span>
+      </button>
+    </li>
+  );
+}
+
+function LogoutButton() {
+  return (
+    <form action={logoutAction}>
+      <button type="submit" className="nv-press flex h-11 items-center gap-2 rounded-full border border-line bg-surface px-5 text-[15px] font-semibold text-ink-2">
+        <LogOut className="size-4" strokeWidth={1.9} aria-hidden />
+        Cerrar sesión
+      </button>
+    </form>
   );
 }
 

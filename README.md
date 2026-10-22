@@ -39,7 +39,8 @@ Next.js 16 · MongoDB Atlas · datos automáticos de JustWatch, sin IA ni API ke
 
 ## Qué hace
 
-- **Casas y perfiles, como en Netflix o la Switch.** Cada familia tiene su **casa** (su propia lista y calendario) y dentro de ella **perfiles**. Al entrar se pregunta «¿Quién está viendo la peli?»; el perfil elegido queda recordado en ese dispositivo y se usa para saludar y para saber quién hace qué.
+- **Cuentas, casas y perfiles, como en Netflix o la Switch.** Cada persona entra con **su correo y su clave**. Cada familia tiene su **casa** (su propia lista y calendario) y se suman a ella con un **link de invitación**. Dentro de la casa cada cuenta tiene su **perfil**, y puede haber perfiles sin cuenta para los niños. El perfil se usa para saludar y para saber quién hace qué.
+- **Clásicas para empezar.** Si la casa está vacía, después de crear el perfil se ofrecen 8 clásicas (Mi pobre angelito 1 y 2, El Grinch, Elf, El expreso polar, Realmente amor, Klaus y Santa Cláusula). Ninguna viene marcada y se puede saltar.
 - **Avatares navideños con personalidad.** Doce personajes dibujados en SVG (Santi, Rudolfo, Nieves, Jengi, Duli, Pino, Pingu, Estrellita, Cascanueces, Noela, Ángel y Osi), cada uno con su carácter y su frase. Se personalizan con color de fondo y accesorio (gorro, bufanda, gafas, moño, estrella) y hay un botón «Sorpréndeme».
 - **Quién agregó, quién sugirió.** Cada película guarda quién la agregó, quién la sugirió (pueden ser personas distintas) y quién la editó por última vez. Se ve en el detalle («Sugerida por Rudolfo · agregada por Ana»), en las tarjetas, en el filtro «Sugerida por» y como un avatar colgando bajo cada puerta del calendario. Con el modo sorpresa, las puertas cerradas no lo muestran para no dar pistas.
 - **Agregar con nombre y año.** Busca en JustWatch Colombia y trae el título latinoamericano, el póster, la sinopsis, los géneros, la duración, IMDb, el Tomatómetro (con Certified Fresh) y las plataformas con enlace directo a la película. Todo se puede editar a mano, incluida la opción «Sin plataforma».
@@ -72,39 +73,43 @@ Next.js 16 · MongoDB Atlas · datos automáticos de JustWatch, sin IA ni API ke
 
 ## Casas, perfiles y límites
 
-**Una casa** es lo que crea cada familia: tiene un nombre, un **código** (por ejemplo `casa-montano`) y una **clave** que comparte toda la familia. **Un perfil** es cada persona dentro de la casa; no tiene clave, se elige en la pantalla de perfiles (hasta 8 por casa). El perfil elegido se guarda en una cookie del dispositivo y se cambia desde el menú del avatar, arriba a la derecha.
+**Una cuenta** es una persona: correo y clave, en la colección `users`. **Una casa** es lo que comparte la familia: nombre, lista, calendario y un **código de invitación** (`NAVI-XXXX-XXXX`). **Un perfil** es cada persona dentro de la casa (hasta 8): el de cada cuenta queda ligado a ella y solo esa cuenta puede usarlo; los perfiles sin cuenta (los niños) los puede usar cualquiera de la casa.
 
-**Crear una casa** es abierto, sin invitación: en `/unirse` piden un **nombre**, un **correo** y una **clave**. El código de la casa sale del nombre («Casa Montaño» → `casa-montano`, con «Cambiar» si prefieren otro; si ya existe se usa `casa-montano-2`, etc.). Cada correo pertenece a una sola casa. Para que nadie llene la base hay un tope de casas y un límite por conexión (ver abajo).
+**Registrarse tiene dos pasos.** En `/unirse` se pide solo **correo y clave**. Luego, en `/bienvenida`, se **crea una casa** (solo el nombre) o se **une a una** con su código. El link `/unirse/NAVI-XXXX-XXXX` lleva el código hasta el segundo paso y muestra «Te invitaron a …». Al entrar a una casa que ya tiene perfiles se pregunta «¿Cuál eres tú?» para tomar uno existente o crear el propio. Cada cuenta pertenece a una sola casa.
 
-**Olvidé la clave.** En `/recuperar` escriben el correo de la casa y reciben por correo (con [nodemailer](https://nodemailer.com)) un código de 6 números que vence en 15 minutos; con ese código eligen la clave nueva. La respuesta es la misma exista o no el correo. El código se guarda solo como hash, admite 5 intentos y se pide como máximo 3 veces por hora por correo. Las casas antiguas, creadas antes de pedir correo, pueden agregarlo en **Ajustes** o seguir usando su código de recuperación en `/recuperar/codigo`.
+**Entrar** es con correo y clave; si la cuenta ya tiene perfil, se elige solo.
 
-**Ajustes de la casa** (menú del avatar → «Ajustes de la casa», `/ajustes`): cambiar el **nombre** y el **código** (el índice único de MongoDB impide que dos casas tengan el mismo; el código anterior deja de funcionar al instante) y cambiar el **correo** de recuperación, para lo cual piden la clave actual.
+**Olvidé la clave.** En `/recuperar` escriben su correo y reciben (con [nodemailer](https://nodemailer.com)) un código de 6 números que vence en 15 minutos; con él eligen la clave nueva. La respuesta es la misma exista o no la cuenta. El código se guarda solo como hash, admite 5 intentos y se pide como máximo 3 veces por hora por correo.
+
+**Ajustes** (menú del avatar → «Ajustes», `/ajustes`): el **nombre** de la casa y la tarjeta **Invitar** (copiar el link o el código, o **generar uno nuevo**, con lo que el anterior deja de funcionar al instante). En **Mi cuenta**: cambiar el **correo** o la **clave**, para lo cual piden la clave actual. El menú del avatar también tiene «Copiar link de invitación».
+
 
 | Límite | Valor | Para qué |
 |---|---|---|
 | Casas en total (`HOME_CAP`) | 200 | Que el servicio no crezca sin que su dueño lo decida |
 | Perfiles por casa | 8 | |
 | Películas por casa | 150 | ~3 KB cada una: 200 casas llenas ≈ 90 MB, muy por debajo de los 512 MB del plan gratis de Atlas |
-| Claves o códigos de recuperación fallidos | 5 cada 15 min por IP y casa | Frenar la adivinanza de claves |
+| Claves fallidas | 5 cada 15 min por IP y correo | Frenar la adivinanza de claves |
+| Códigos de invitación fallidos | 5 cada 15 min por IP | Que nadie adivine cómo entrar a una casa |
 | Códigos por correo pedidos | 5 cada 15 min por IP y 3 por hora por correo | Que nadie llene el buzón de otra persona |
-| Casas nuevas | 3 por día por IP | Como el registro es abierto, evita que una sola persona llene la base |
+| Cuentas nuevas y casas nuevas | 3 por día por IP, cada una | Como el registro es abierto, evita que una sola persona llene la base |
 | Búsquedas en JustWatch/OMDb | 30 por hora por casa | Proteger la cuota gratis de OMDb |
 | Casas sin actividad | se borran tras 12 meses (cron semanal) | Limpieza automática |
 
-Otras defensas: las claves se guardan con `scrypt` y comparación en tiempo constante; el error de entrada es el mismo exista o no el código de la casa; cada acción del servidor vuelve a comprobar la sesión **y** que el perfil pertenezca a esa casa; y una casa borrada deja de poder escribir aunque su cookie siga vigente.
+Otras defensas: las claves se guardan con `scrypt` y comparación en tiempo constante; el error de entrada es el mismo exista o no la cuenta; cada acción del servidor vuelve a leer la cuenta en la base (no se fía de la cookie), y comprueba que el perfil sea de esa casa y sea suelto o de esa misma cuenta. Si se borra una casa, sus cuentas vuelven al paso «crear o unirse».
 
 ## Cómo funciona
 
 La idea clave: **la app no guarda una copia "oficial" de nada externo**. Cuando agregan una película, el servidor le pregunta a JustWatch por el título y el año y les muestra las coincidencias. Lo que eligen se guarda en MongoDB y queda editable. El botón «Actualizar datos» vuelve a consultar los ratings y la disponibilidad, que cambian con el tiempo, sin tocar el título ni las notas que ustedes pusieron.
 
-La entrada tiene **dos pasos**: primero la casa (código + clave) y luego el perfil. Cada paso es una cookie firmada distinta.
+La entrada tiene **tres pasos**: la cuenta (correo + clave), la casa (crear o unirse) y el perfil. La sesión y el perfil son dos cookies firmadas distintas.
 
 ```mermaid
 flowchart LR
-  U["Navegador<br/>(celular o compu)"] --> P["proxy.ts<br/>¿casa? ¿perfil?"]
+  U["Navegador<br/>(celular o compu)"] --> P["proxy.ts<br/>¿cuenta? ¿casa? ¿perfil?"]
   P --> RSC["Páginas Next.js<br/>shell estático + streaming"]
   U -->|"Server Actions"| SA["Acciones<br/>películas, calendario,<br/>perfiles, admin"]
-  RSC --> DAL["Capa de datos<br/>verifica casa y perfil"]
+  RSC --> DAL["Capa de datos<br/>verifica cuenta, casa y perfil"]
   SA --> DAL
   SA --> RL["Límites<br/>intentos, topes"]
   DAL <--> DB[("MongoDB Atlas")]
@@ -137,13 +142,14 @@ sequenceDiagram
   actor N as Familia nueva
   participant S as Servidor
   participant M as MongoDB
-  N->>S: abre /unirse y escribe nombre, correo y clave
-  S->>S: límite por IP y tope de casas; el código sale del nombre
-  S->>M: crear la casa con la clave en hash y el correo único
-  S-->>N: cookie de casa y el código para entrar
-  N->>S: crea su primer perfil (personaje, color, accesorio)
-  S->>M: guardar el perfil y fijarlo en este dispositivo
-  S-->>N: inicio con el saludo del personaje
+  N->>S: abre /unirse (o el link de invitación) con correo y clave
+  S->>M: crear la cuenta con la clave en hash y el correo único
+  S-->>N: cookie de sesión y paso 2 en /bienvenida
+  N->>S: crea una casa (nombre) o escribe el código de invitación
+  S->>M: casa nueva con su código, o unirse a la del código
+  N->>S: «¿Cuál eres tú?»: toma un perfil o crea el suyo
+  S->>M: ligar el perfil a la cuenta y fijarlo en este dispositivo
+  S-->>N: si la casa está vacía, 8 clásicas para elegir; luego el inicio
 ```
 
 ## Requisitos
@@ -167,7 +173,7 @@ Copien [`.env.example`](.env.example) a `.env.local`, que git ignora.
 | `MONGODB_DB` | | Nombre de la base. Por defecto `christmas-movies`. |
 | `AUTH_SECRET` | ✅ | Firma las cookies de sesión (mínimo 32 caracteres): `openssl rand -base64 32`. |
 | `ADMIN_PASSWORD` | ✅ | Clave del panel `/admin`, donde se ven y borran las casas. Si falta, se usa `APP_PASSWORD`. |
-| `APP_PASSWORD` | solo al migrar | Clave de la **primera casa**, la que crea `pnpm migrate:homes` a partir del dashboard de antes. Después ya no se usa para entrar. |
+| `APP_PASSWORD` | | Respaldo de `ADMIN_PASSWORD`. Ya no se usa para entrar a ninguna casa. |
 | `HOME_CAP` | | Máximo de casas. Por defecto 200; `0` cierra los registros. |
 | `CRON_SECRET` | ✅ en Vercel | Protege la limpieza semanal: Vercel la envía como `Authorization: Bearer …`. `openssl rand -base64 32`. |
 | `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` | ✅ en producción | Cuenta que envía el correo de «olvidé la clave». Con Gmail: `smtp.gmail.com`, el correo y una [contraseña de aplicación](https://myaccount.google.com/apppasswords). Sin ellas, en desarrollo el código se imprime en la terminal. |
@@ -192,40 +198,35 @@ pnpm dev                     # http://localhost:3000
 ```bash
 pnpm demo                                      # cargar datos de demo
 MONGODB_DB=christmas-movies-demo pnpm dev      # abrir la app con esos datos
-# entren con el código de casa «casa-demo» y la clave «navidad», y elijan un perfil
+# entren con «ana@demo.com» y la clave «navidad»
 pnpm demo --limpiar                            # borrarlos
 ```
 
 **Empezar de cero en una base nueva.** No hay casas todavía:
 
-1. Abran `http://localhost:3000/unirse`, escriban el nombre de la casa, un correo y una clave, y anoten el código de la casa.
-2. Creen el primer perfil y ya pueden agregar o importar películas.
+1. Abran `http://localhost:3000/unirse`, creen su cuenta (correo y clave) y luego su casa.
+2. Creen su perfil; si quieren, elijan algunas de las clásicas sugeridas, y ya pueden agregar o importar películas.
+3. Inviten a la familia desde **Ajustes → Invitar a la casa**.
 
-**Convertir el dashboard anterior (una sola clave) en la primera casa.** Conserva todas las películas y el calendario y no reescribe ningún documento: la casa toma el identificador `household`, que ya llevaban. Los nombres del saludo viejo («Ana y Leo») se convierten en perfiles. Es idempotente.
-
-```bash
-APP_PASSWORD="la clave de siempre" pnpm migrate:homes --slug casa-montano --name "Casa Montaño"
-```
-
-Las casas que existían antes de pedir correo lo agregan en **Ajustes** o desde la terminal:
+**Pasar de «la casa es la cuenta» a cuentas por persona.** Antes cada casa tenía un código (`casa-montano`), un correo y una clave compartidos. `migrate:accounts` convierte el correo y la clave de cada casa en su primera cuenta (la clave no cambia), le da a cada casa su código de invitación y quita los campos viejos y sus índices. Opcionalmente borra una casa, renombra otra y liga la cuenta a un perfil existente. Es idempotente.
 
 ```bash
-pnpm set:email --slug casa-montano --email familia@correo.com
+pnpm migrate:accounts --delete-slug jvrmmora --rename-slug casa-montano --name "Casa Monama" --profile Javier
 ```
 
-> Ensáyenlo primero en la base de demo: `MONGODB_DB=christmas-movies-demo APP_PASSWORD=… pnpm migrate:homes --slug demo --name Demo`.
+> Ensáyenlo primero en la base de demo con `MONGODB_DB=christmas-movies-demo`. En producción, córranlo justo después de desplegar: mientras tanto nadie puede entrar.
 
-**Cargar la lista inicial de la casa original** (la lista personal del autor), si se clona de cero. Es idempotente: las películas que ya existen se saltan. Con `--slug` se carga en otra casa.
+**Cargar la lista inicial de la casa original** (la lista personal del autor), si se clona de cero. Es idempotente: las películas que ya existen se saltan. Con `--email` se carga en la casa de esa cuenta.
 
 ```bash
 pnpm seed                        # casa migrada (household)
-pnpm seed --slug casa-montano    # una casa en concreto
+pnpm seed --email tu@correo.com  # la casa de una cuenta
 ```
 
 **Pruebas y chequeos:**
 
 ```bash
-pnpm test        # 77 pruebas: calendario y reparto automático, duplicados, saludo, formato, JustWatch, claves, códigos de casa, correo y códigos de recuperación, tema automático, límites, créditos de películas, avatares
+pnpm test        # 71 pruebas: calendario y reparto automático, duplicados, saludo, formato, JustWatch, claves, códigos de invitación, cuentas y códigos por correo, tema automático, límites, créditos de películas, avatares
 pnpm lint
 pnpm typecheck
 pnpm build
@@ -242,7 +243,7 @@ Los índices (casas por código, perfiles por casa, título + año únicos por c
 
 ## Desplegar en Vercel
 
-> ⚠️ **Si ya tienen datos de la versión de una sola clave, corran `pnpm migrate:homes` contra esa base _antes_ de desplegar.** Sin casas, nadie puede entrar. Hagan también una copia de la base en Atlas (**Backup** o `mongodump`).
+> ⚠️ **Si ya tienen datos de la versión con código de casa y clave compartida, corran `pnpm migrate:accounts` contra esa base justo después de desplegar.** Sin cuentas, nadie puede entrar. Hagan también una copia de la base en Atlas (**Backup** o `mongodump`).
 
 **Desde GitHub (recomendado, cada push despliega solo):**
 
@@ -294,8 +295,9 @@ El archivo [`vercel.json`](vercel.json) programa la limpieza semanal (lunes, 8:0
 ## Modelo de datos
 
 ```text
-homes       { _id, slug (único), name, passwordHash, recoveryHash, createdAt, lastActiveAt }
-profiles    { _id, homeId, name, avatar{character, bg, accessory}, createdAt }
+users       { _id, email (único), passwordHash, homeId | null, reset?{codeHash, expiresAt, attempts}, createdAt, lastActiveAt }
+homes       { _id, name, inviteCode (único), createdBy, createdAt, lastActiveAt }
+profiles    { _id, homeId, name, avatar{character, bg, accessory}, userId? (único por casa), createdAt }
 rate_limits { _id (clave del límite), count, expiresAt }   · TTL: se borra sola
 movies      { ownerId (= id de la casa), title, originalTitle, year, posterUrl, backdropUrl, synopsis, genres[],
               runtimeMinutes, trailerUrl, ratings{imdb, rottenTomatoes, certifiedFresh},
@@ -346,7 +348,7 @@ docs/                        # logo y capturas del README
 | `user is not allowed to do action […]` | El usuario de Atlas no tiene permisos sobre esa base. Denle `readWrite` sobre `christmas-movies` (y sobre `christmas-movies-demo` si usan el modo demo). |
 | «Ese código de casa o esa clave no coinciden» | El código o la clave están mal; el aviso es el mismo a propósito. Si olvidaron la clave, usen [Recuperar acceso](#casas-perfiles-y-límites). |
 | «Demasiados intentos. Prueba de nuevo en 15 minutos» | Se pasaron de 5 intentos fallidos desde esa red para esa casa. Esperen o cambien de red. |
-| Después de desplegar nadie puede entrar | Faltó migrar el dashboard anterior: corran `pnpm migrate:homes` contra la base de producción (ver [Probarlo en local](#probarlo-en-local)). |
+| Después de desplegar nadie puede entrar | Faltó crear las cuentas: corran `pnpm migrate:accounts` contra la base de producción (ver [Probarlo en local](#probarlo-en-local)). |
 | «Demasiados intentos» al crear una casa | Esa conexión ya creó 3 casas hoy. Esperen o usen otra red. |
 | «Por ahora no hay lugar para más casas» | Se alcanzó `HOME_CAP`. Súbanlo o borren casas inactivas en `/admin`. |
 | El cron de limpieza responde 401 | Falta `CRON_SECRET` en Vercel (o no coincide). Agréguela y vuelvan a desplegar. |

@@ -86,14 +86,7 @@ export const profileInputSchema = z.object({
 
 export type ProfileInput = z.input<typeof profileInputSchema>;
 
-// 3–24 characters; letters, digits and inner dashes only, so it reads well in a login form.
-export const homeSlugSchema = z
-  .string()
-  .trim()
-  .toLowerCase()
-  .regex(/^[a-z0-9][a-z0-9-]{1,22}[a-z0-9]$/, "El código de la casa usa de 3 a 24 letras, números o guiones");
-
-export const homePasswordSchema = z
+export const passwordSchema = z
   .string()
   .min(6, "La clave necesita al menos 6 caracteres")
   .max(100, "La clave es demasiado larga");
@@ -101,24 +94,19 @@ export const homePasswordSchema = z
 export const homeNameSchema = z.string().trim().min(1, "Ponle un nombre a la casa").max(40, "Máximo 40 letras");
 
 /** Lowercased so "Ana@Gmail.com" and "ana@gmail.com" are the same address (and the same unique key). */
-export const homeEmailSchema = z.string().trim().toLowerCase().max(254, "Ese correo es demasiado largo").pipe(z.email("Escribe un correo válido"));
+export const emailSchema = z.string().trim().toLowerCase().max(254, "Ese correo es demasiado largo").pipe(z.email("Escribe un correo válido"));
 
-export const homeInputSchema = z.object({
-  name: homeNameSchema,
-  email: homeEmailSchema,
-  slug: homeSlugSchema,
-  password: homePasswordSchema,
+/** Step 1 of sign-up: one person's account. */
+export const accountInputSchema = z.object({
+  email: emailSchema,
+  password: passwordSchema,
 });
-
-export const homeSettingsSchema = z.object({ name: homeNameSchema, slug: homeSlugSchema });
 
 /** The six digits from the e-mail; spaces and dashes are ignored ("123 456"). */
 export const resetCodeSchema = z
   .string()
   .transform((v) => v.replace(/[\s-]/g, ""))
   .pipe(z.string().regex(/^\d{6}$/, "El código tiene 6 números"));
-
-export type HomeInput = z.input<typeof homeInputSchema>;
 
 export function firstIssue(error: z.ZodError): string {
   return error.issues[0]?.message ?? "Revisa los datos";
