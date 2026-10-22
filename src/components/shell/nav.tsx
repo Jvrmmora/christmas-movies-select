@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Bell, BellOff, CalendarDays, Check, Clapperboard, Copy, House, LogOut, Moon, Pencil, Plus, Sparkles, Sun, SunMoon, Users } from "lucide-react";
+import { Bell, BellOff, CalendarDays, Check, Clapperboard, Copy, House, LogOut, Moon, Pencil, Plus, Settings, Sparkles, Sun, SunMoon, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar } from "@/components/avatars/avatar";
 import { CAST } from "@/components/avatars/cast";
@@ -195,6 +195,10 @@ function ProfileMenu({ profile, home }: { profile: Profile | null; home: HomeInf
             <span className="flex-1">Código de la casa</span>
             <span className="min-w-0 truncate font-mono text-sm text-ink-2">{home.slug}</span>
           </button>
+          <Link role="menuitem" href="/ajustes" onClick={() => setOpen(false)} className={menuItem}>
+            <Settings className="size-[18px] text-ink-2" strokeWidth={1.8} aria-hidden />
+            Ajustes de la casa
+          </Link>
           <div className="my-1 h-px bg-line" />
           <form action={logoutAction}>
             <button type="submit" role="menuitem" className={`${menuItem} text-berry-ink`}>

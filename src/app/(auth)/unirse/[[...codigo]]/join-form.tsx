@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useState } from "react";
-import { AtSign, House, LockKeyhole } from "lucide-react";
+import { AtSign, House, LockKeyhole, Mail } from "lucide-react";
 import { createHomeAction, type HomeFormState } from "@/actions/home";
 import { AuthHeading } from "@/components/auth/auth-shell";
 import { Field, FormError, SubmitButton } from "@/components/auth/fields";
@@ -17,16 +17,16 @@ export function JoinForm() {
   const [editing, setEditing] = useState(false);
   const suggested = name.trim() ? homeSlugFromName(name) : "";
 
-  if (state.recoveryCode && state.slug) {
+  if (state.slug) {
     return (
-      <AuthHeading title={`¡${name.trim() || "Su casa"} está lista!`} subtitle="Guarden estos dos datos. El código de recuperación solo se muestra esta vez.">
-        <RecoveryCode code={state.recoveryCode} homeSlug={state.slug} continueLabel="Crear mi primer perfil" />
+      <AuthHeading title={`¡${name.trim() || "Su casa"} está lista!`} subtitle="Este es el código con el que entrarán.">
+        <RecoveryCode homeSlug={state.slug} continueLabel="Crear mi primer perfil" />
       </AuthHeading>
     );
   }
 
   return (
-    <AuthHeading title="Crea tu casa" subtitle="Solo dos datos y listo. Sin invitaciones.">
+    <AuthHeading title="Crea tu casa" subtitle="Nombre, correo y clave. Sin invitaciones.">
     <form action={action} className="mt-7 flex flex-col gap-4">
       <input type="hidden" name="slugAuto" value={editing ? "0" : "1"} />
       <div className="flex flex-col gap-2">
@@ -85,6 +85,20 @@ export function JoinForm() {
           />
         </div>
       )}
+      <Field
+        id="email"
+        label="Correo"
+        icon={Mail}
+        type="email"
+        required
+        maxLength={254}
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+        autoComplete="email"
+        placeholder="familia@correo.com"
+        hint="Aquí les enviamos un código si olvidan la clave."
+      />
       <Field id="password" label="Clave" icon={LockKeyhole} type="password" required minLength={6} autoComplete="new-password" placeholder="Mínimo 6 caracteres" />
       <FormError>{state.error}</FormError>
       <SubmitButton pending={pending} idle="Crear mi casa" busy="Creando…" />

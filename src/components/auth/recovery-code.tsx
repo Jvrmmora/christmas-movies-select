@@ -26,7 +26,8 @@ export function RecoveryCode({
   continueHref = "/perfiles",
   continueLabel = "Continuar",
 }: {
-  code: string;
+  /** Absent for homes that recover by e-mail: only the home's code is shown. */
+  code?: string;
   homeSlug?: string;
   continueHref?: string;
   continueLabel?: string;
@@ -60,6 +61,7 @@ export function RecoveryCode({
           </button>
         </div>
       )}
+      {code && (
       <div className="rounded-[18px] border border-gold/50 bg-gold-soft p-5">
         <p className="flex items-center gap-2 text-[13px] font-semibold text-gold-ink">
           <KeyRound className="size-4" strokeWidth={2} aria-hidden />
@@ -71,12 +73,17 @@ export function RecoveryCode({
           Copiar
         </button>
       </div>
-      <p className="text-sm text-ink-2">
-        Guárdenlo en un lugar seguro. Es la única forma de recuperar la casa si olvidan la clave, y <strong className="text-ink">no se vuelve a mostrar</strong>.
-      </p>
+      )}
+      {code ? (
+        <p className="text-sm text-ink-2">
+          Guárdenlo en un lugar seguro. Es la única forma de recuperar la casa si olvidan la clave, y <strong className="text-ink">no se vuelve a mostrar</strong>.
+        </p>
+      ) : (
+        <p className="text-sm text-ink-2">Anoten este código: es lo que escriben, junto con la clave, para entrar. Si olvidan la clave, les enviamos un código a su correo.</p>
+      )}
       <label className="flex items-start gap-3 text-sm font-medium">
         <input type="checkbox" checked={saved} onChange={(e) => setSaved(e.target.checked)} className="mt-0.5 size-5 accent-[var(--berry)]" />
-        {homeSlug ? "Ya los guardé" : "Ya lo guardé"}
+        {code && homeSlug ? "Ya los guardé" : code ? "Ya lo guardé" : "Ya lo anoté"}
       </label>
       {saved ? (
         <Link href={continueHref} className="nv-press grid h-[52px] place-items-center rounded-[14px] bg-berry text-base font-semibold text-white">

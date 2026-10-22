@@ -98,11 +98,25 @@ export const homePasswordSchema = z
   .min(6, "La clave necesita al menos 6 caracteres")
   .max(100, "La clave es demasiado larga");
 
+export const homeNameSchema = z.string().trim().min(1, "Ponle un nombre a la casa").max(40, "Máximo 40 letras");
+
+/** Lowercased so "Ana@Gmail.com" and "ana@gmail.com" are the same address (and the same unique key). */
+export const homeEmailSchema = z.string().trim().toLowerCase().max(254, "Ese correo es demasiado largo").pipe(z.email("Escribe un correo válido"));
+
 export const homeInputSchema = z.object({
-  name: z.string().trim().min(1, "Ponle un nombre a la casa").max(40, "Máximo 40 letras"),
+  name: homeNameSchema,
+  email: homeEmailSchema,
   slug: homeSlugSchema,
   password: homePasswordSchema,
 });
+
+export const homeSettingsSchema = z.object({ name: homeNameSchema, slug: homeSlugSchema });
+
+/** The six digits from the e-mail; spaces and dashes are ignored ("123 456"). */
+export const resetCodeSchema = z
+  .string()
+  .transform((v) => v.replace(/[\s-]/g, ""))
+  .pipe(z.string().regex(/^\d{6}$/, "El código tiene 6 números"));
 
 export type HomeInput = z.input<typeof homeInputSchema>;
 

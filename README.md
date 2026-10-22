@@ -74,7 +74,11 @@ Next.js 16 · MongoDB Atlas · datos automáticos de JustWatch, sin IA ni API ke
 
 **Una casa** es lo que crea cada familia: tiene un nombre, un **código** (por ejemplo `casa-montano`) y una **clave** que comparte toda la familia. **Un perfil** es cada persona dentro de la casa; no tiene clave, se elige en la pantalla de perfiles (hasta 8 por casa). El perfil elegido se guarda en una cookie del dispositivo y se cambia desde el menú del avatar, arriba a la derecha.
 
-**Crear una casa** es abierto, sin invitación: en `/unirse` solo piden un **nombre** y una **clave**. El código de la casa sale del nombre («Casa Montaño» → `casa-montano`, con «Cambiar» si prefieren otro; si ya existe se usa `casa-montano-2`, etc.) y la app muestra **una sola vez** ese código y un código de recuperación. Para que nadie llene la base hay un tope de casas y un límite por conexión (ver abajo). Si olvidan la clave, `/recuperar` la restablece con ese código (y entrega uno nuevo). No hay correos ni cuentas de terceros.
+**Crear una casa** es abierto, sin invitación: en `/unirse` piden un **nombre**, un **correo** y una **clave**. El código de la casa sale del nombre («Casa Montaño» → `casa-montano`, con «Cambiar» si prefieren otro; si ya existe se usa `casa-montano-2`, etc.). Cada correo pertenece a una sola casa. Para que nadie llene la base hay un tope de casas y un límite por conexión (ver abajo).
+
+**Olvidé la clave.** En `/recuperar` escriben el correo de la casa y reciben por correo (con [nodemailer](https://nodemailer.com)) un código de 6 números que vence en 15 minutos; con ese código eligen la clave nueva. La respuesta es la misma exista o no el correo. El código se guarda solo como hash, admite 5 intentos y se pide como máximo 3 veces por hora por correo. Las casas antiguas, creadas antes de pedir correo, pueden agregarlo en **Ajustes** o seguir usando su código de recuperación en `/recuperar/codigo`.
+
+**Ajustes de la casa** (menú del avatar → «Ajustes de la casa», `/ajustes`): cambiar el **nombre** y el **código** (el índice único de MongoDB impide que dos casas tengan el mismo; el código anterior deja de funcionar al instante) y cambiar el **correo** de recuperación, para lo cual piden la clave actual.
 
 | Límite | Valor | Para qué |
 |---|---|---|
@@ -82,6 +86,7 @@ Next.js 16 · MongoDB Atlas · datos automáticos de JustWatch, sin IA ni API ke
 | Perfiles por casa | 8 | |
 | Películas por casa | 150 | ~3 KB cada una: 200 casas llenas ≈ 90 MB, muy por debajo de los 512 MB del plan gratis de Atlas |
 | Claves o códigos de recuperación fallidos | 5 cada 15 min por IP y casa | Frenar la adivinanza de claves |
+| Códigos por correo pedidos | 5 cada 15 min por IP y 3 por hora por correo | Que nadie llene el buzón de otra persona |
 | Casas nuevas | 3 por día por IP | Como el registro es abierto, evita que una sola persona llene la base |
 | Búsquedas en JustWatch/OMDb | 30 por hora por casa | Proteger la cuota gratis de OMDb |
 | Casas sin actividad | se borran tras 12 meses (cron semanal) | Limpieza automática |
@@ -132,10 +137,10 @@ sequenceDiagram
   actor N as Familia nueva
   participant S as Servidor
   participant M as MongoDB
-  N->>S: abre /unirse y escribe nombre y clave
+  N->>S: abre /unirse y escribe nombre, correo y clave
   S->>S: límite por IP y tope de casas; el código sale del nombre
-  S->>M: crear la casa con la clave y el código de recuperación en hash
-  S-->>N: cookie de casa y código de recuperación, que se muestra una vez
+  S->>M: crear la casa con la clave en hash y el correo único
+  S-->>N: cookie de casa y el código para entrar
   N->>S: crea su primer perfil (personaje, color, accesorio)
   S->>M: guardar el perfil y fijarlo en este dispositivo
   S-->>N: inicio con el saludo del personaje
@@ -148,6 +153,7 @@ sequenceDiagram
 | **Node.js 22+** y **pnpm 10** | Correr, probar y construir | Gratis |
 | **MongoDB Atlas** (clúster M0) | Guardar casas, perfiles, películas y calendarios | Gratis |
 | **Vercel** (plan Hobby) | Publicarla en internet y correr la limpieza semanal | Gratis |
+| **Cuenta SMTP** *(para «olvidé la clave»)* | Enviar el código por correo, por ejemplo Gmail con una contraseña de aplicación | Gratis |
 | JustWatch | Pósters, sinopsis, ratings y plataformas en Colombia | Gratis, sin clave |
 | OMDb *(opcional)* | Completar IMDb o Rotten Tomatoes cuando JustWatch no los trae | Gratis hasta 1.000 consultas al día |
 
@@ -164,6 +170,9 @@ Copien [`.env.example`](.env.example) a `.env.local`, que git ignora.
 | `APP_PASSWORD` | solo al migrar | Clave de la **primera casa**, la que crea `pnpm migrate:homes` a partir del dashboard de antes. Después ya no se usa para entrar. |
 | `HOME_CAP` | | Máximo de casas. Por defecto 200; `0` cierra los registros. |
 | `CRON_SECRET` | ✅ en Vercel | Protege la limpieza semanal: Vercel la envía como `Authorization: Bearer …`. `openssl rand -base64 32`. |
+| `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` | ✅ en producción | Cuenta que envía el correo de «olvidé la clave». Con Gmail: `smtp.gmail.com`, el correo y una [contraseña de aplicación](https://myaccount.google.com/apppasswords). Sin ellas, en desarrollo el código se imprime en la terminal. |
+| `SMTP_PORT` | | Por defecto 465 (TLS). |
+| `SMTP_FROM` | | Remitente, por ejemplo `"Navidad en casa" <correo@gmail.com>`. Por defecto `SMTP_USER`. |
 | `OMDB_API_KEY` | | Clave gratis de [omdbapi.com](https://www.omdbapi.com/apikey.aspx). |
 
 > Los secretos viven solo en `.env.local` y en el panel de Vercel. **Nunca** se versionan.
@@ -189,13 +198,19 @@ pnpm demo --limpiar                            # borrarlos
 
 **Empezar de cero en una base nueva.** No hay casas todavía:
 
-1. Abran `http://localhost:3000/unirse`, escriban el nombre de la casa y una clave, y guarden el código de la casa y el de recuperación.
+1. Abran `http://localhost:3000/unirse`, escriban el nombre de la casa, un correo y una clave, y anoten el código de la casa.
 2. Creen el primer perfil y ya pueden agregar o importar películas.
 
 **Convertir el dashboard anterior (una sola clave) en la primera casa.** Conserva todas las películas y el calendario y no reescribe ningún documento: la casa toma el identificador `household`, que ya llevaban. Los nombres del saludo viejo («Ana y Leo») se convierten en perfiles. Es idempotente.
 
 ```bash
 APP_PASSWORD="la clave de siempre" pnpm migrate:homes --slug casa-montano --name "Casa Montaño"
+```
+
+Las casas que existían antes de pedir correo lo agregan en **Ajustes** o desde la terminal:
+
+```bash
+pnpm set:email --slug casa-montano --email familia@correo.com
 ```
 
 > Ensáyenlo primero en la base de demo: `MONGODB_DB=christmas-movies-demo APP_PASSWORD=… pnpm migrate:homes --slug demo --name Demo`.
@@ -210,7 +225,7 @@ pnpm seed --slug casa-montano    # una casa en concreto
 **Pruebas y chequeos:**
 
 ```bash
-pnpm test        # 70 pruebas: calendario y reparto automático, duplicados, saludo, formato, JustWatch, claves, códigos de casa y recuperación, tema automático, límites, créditos de películas, avatares
+pnpm test        # 77 pruebas: calendario y reparto automático, duplicados, saludo, formato, JustWatch, claves, códigos de casa, correo y códigos de recuperación, tema automático, límites, créditos de películas, avatares
 pnpm lint
 pnpm typecheck
 pnpm build
@@ -232,7 +247,7 @@ Los índices (casas por código, perfiles por casa, título + año únicos por c
 **Desde GitHub (recomendado, cada push despliega solo):**
 
 1. En [vercel.com/new](https://vercel.com/new), importen el repositorio `jvrmmora/christmas-movies-select`. Vercel detecta Next.js; no hay que cambiar nada del build.
-2. En **Environment Variables**, agreguen `MONGODB_URI`, `MONGODB_DB`, `AUTH_SECRET`, `ADMIN_PASSWORD`, `CRON_SECRET`, `HOME_CAP` (opcional) y, si la usan, `OMDB_API_KEY`.
+2. En **Environment Variables**, agreguen `MONGODB_URI`, `MONGODB_DB`, `AUTH_SECRET`, `ADMIN_PASSWORD`, `CRON_SECRET`, `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` (opcional), `HOME_CAP` (opcional) y, si la usan, `OMDB_API_KEY`.
 3. **Deploy.** Abran la URL `*.vercel.app`, entren con el código de su casa y su clave, y elijan perfil.
 
 **Desde la terminal:**

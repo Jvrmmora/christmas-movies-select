@@ -45,7 +45,12 @@ export interface HomeDoc {
   slug: string;
   name: string;
   passwordHash: string;
-  recoveryHash: string;
+  /** Lowercased; unique across homes. Absent on homes made before sign-up asked for it. */
+  email?: string;
+  /** Only on homes created before sign-up asked for an e-mail; newer ones recover by e-mail. */
+  recoveryHash?: string;
+  /** A pending "forgot my password" code: only its hash is kept, it expires and allows a few tries. */
+  reset?: { codeHash: string; expiresAt: Date; attempts: number };
   /** Only on homes created back when sign-up needed an invite. */
   inviteCode?: string | null;
   createdAt: Date;
@@ -103,6 +108,8 @@ export async function collections() {
     calendars.createIndex({ ownerId: 1, season: 1 }, { unique: true }),
     settings.createIndex({ ownerId: 1 }, { unique: true }),
     homes.createIndex({ slug: 1 }, { unique: true }),
+    // Partial, so the homes that have no e-mail yet don't collide with each other.
+    homes.createIndex({ email: 1 }, { unique: true, partialFilterExpression: { email: { $type: "string" } } }),
     profiles.createIndex({ homeId: 1, createdAt: 1 }),
     // Expired windows disappear on their own; no cron needed.
     rateLimits.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),

@@ -31,6 +31,13 @@ export const getHome = cache(async (): Promise<HomeInfo> => {
   return { id: home._id, slug: home.slug, name: home.name };
 });
 
+/** The address that receives password-reset codes, or null for homes that never set one. */
+export const getHomeEmail = cache(async (): Promise<string | null> => {
+  const { homeId } = await verifySession();
+  const { homes } = await collections();
+  return (await homes.findOne({ _id: homeId }, { projection: { email: 1 } }))?.email ?? null;
+});
+
 export const getProfiles = cache(async (): Promise<Profile[]> => {
   const { homeId } = await verifySession();
   const { profiles } = await collections();

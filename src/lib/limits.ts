@@ -20,6 +20,14 @@ export const RATE_RULES = {
   login: { max: 5, windowMs: 15 * MINUTE },
   /** Wrong recovery codes per IP + home slug. */
   recovery: { max: 5, windowMs: 15 * MINUTE },
+  /** "Forgot my password" e-mails requested per IP. */
+  resetRequestIp: { max: 5, windowMs: 15 * MINUTE },
+  /** …and per address, so nobody can flood someone's inbox. */
+  resetRequestEmail: { max: 3, windowMs: HOUR },
+  /** Wrong reset codes per IP + address (the code itself also allows a few tries, see reset-code.ts). */
+  resetVerify: { max: 5, windowMs: 15 * MINUTE },
+  /** Wrong current passwords when changing the e-mail, per home. */
+  settings: { max: 5, windowMs: 15 * MINUTE },
   /** Homes created per IP: anyone can sign up, so this keeps one person from filling the database. */
   signup: { max: 3, windowMs: 24 * HOUR },
   /** JustWatch / OMDb lookups per home (OMDb's free key is small). */
