@@ -29,6 +29,23 @@ export function DashboardSkeleton() {
   );
 }
 
+export function SummarySkeleton() {
+  return (
+    <div className="flex flex-col gap-6" role="status" aria-label="Cargando">
+      <Bone className="h-[220px] rounded-3xl" />
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(210px,1fr))] gap-4">
+        {Array.from({ length: 4 }, (_, i) => (
+          <Bone key={i} className="h-[84px] rounded-[20px]" />
+        ))}
+      </div>
+      <div className="grid gap-6 md:grid-cols-2">
+        <Bone className="h-[300px] rounded-3xl" />
+        <Bone className="h-[300px] rounded-3xl" />
+      </div>
+    </div>
+  );
+}
+
 export function DetailSkeleton() {
   return (
     <div role="status" aria-label="Cargando">

@@ -11,6 +11,7 @@ import { useNow } from "@/components/use-now";
 import { usePrefs } from "@/components/providers";
 import { ChristmasCountdown } from "./christmas-countdown";
 import { MovieCard } from "@/components/movies/movie-card";
+import { useFavorites } from "@/components/movies/favorite";
 import { useWatched, WatchedButton } from "@/components/movies/watched";
 import { Poster, ProviderLogo } from "@/components/ui/poster";
 import { RatingBadges } from "@/components/ui/rating-badges";
@@ -26,6 +27,7 @@ const monthShort = new Intl.DateTimeFormat("es-CO", { month: "short" });
 export function DashboardView({ movies, calendar }: { movies: Movie[]; calendar: CalendarState }) {
   const now = useNow();
   const { isWatched, toggle } = useWatched(movies);
+  const { isFavorite, toggle: toggleFavorite } = useFavorites(movies);
   const byId = new Map(movies.map((m) => [m.id, m]));
   const todayKey = now ? toKey(now) : null;
 
@@ -96,7 +98,15 @@ export function DashboardView({ movies, calendar }: { movies: Movie[]; calendar:
           <SectionHead id="lista" title="Para ver pronto" href="/peliculas" link="Ver todas" />
           <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-x-5 gap-y-6 sm:grid-cols-[repeat(auto-fill,minmax(168px,1fr))]">
             {shortlist.map((m, i) => (
-              <MovieCard key={m.id} movie={m} watched={isWatched(m.id)} onToggle={() => toggle(m.id)} delay={i * 0.04} />
+              <MovieCard
+                key={m.id}
+                movie={m}
+                watched={isWatched(m.id)}
+                onToggle={() => toggle(m.id)}
+                favorite={isFavorite(m.id)}
+                onToggleFavorite={() => toggleFavorite(m.id)}
+                delay={i * 0.04}
+              />
             ))}
           </div>
         </section>
@@ -206,6 +216,9 @@ function ProgressCard({ watched, total, pending, hours, season }: { watched: num
           </div>
         </div>
       </div>
+      <Link href="/resumen" className="text-sm font-semibold text-berry-ink hover:text-berry">
+        Ver el resumen de la casa
+      </Link>
     </div>
   );
 }

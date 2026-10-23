@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { Clapperboard, GalleryHorizontal, ListPlus, Search, TreePine } from "lucide-react";
 import { MovieCard } from "./movie-card";
 import { MovieGallery } from "./movie-gallery";
+import { useFavorites } from "./favorite";
 import { useWatched } from "./watched";
 import { ProfileChips } from "@/components/profiles/profile-chips";
 import { useProfiles } from "@/components/profiles/profiles-provider";
@@ -21,6 +22,7 @@ const NONE = "__none__";
 
 export function MoviesBrowser({ movies, calendar }: { movies: Movie[]; calendar: CalendarState }) {
   const { isWatched, toggle } = useWatched(movies);
+  const { isFavorite, toggle: toggleFavorite } = useFavorites(movies);
   const [status, setStatus] = useState<Status>("all");
   const [platform, setPlatform] = useState<string>("all");
   const [genre, setGenre] = useState<string>("all");
@@ -219,6 +221,8 @@ export function MoviesBrowser({ movies, calendar }: { movies: Movie[]; calendar:
                 movie={m}
                 watched={isWatched(m.id)}
                 onToggle={() => toggle(m.id)}
+                favorite={isFavorite(m.id)}
+                onToggleFavorite={() => toggleFavorite(m.id)}
                 dateLabel={key ? monthShort.format(parseKey(key)).replace(".", "") : undefined}
                 delay={Math.min(i, 12) * 0.03}
                 onExplore={() => setGalleryAt(i)}
