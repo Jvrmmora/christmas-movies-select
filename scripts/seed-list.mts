@@ -4,6 +4,7 @@
  * Also used by scripts/demo.mts.
  */
 import { parseArgs } from "node:util";
+import { LEGACY_COUNTRY } from "../src/lib/countries";
 import { collections, LEGACY_HOME_ID, type MovieDoc } from "../src/lib/db";
 import { enrich, lookupMovie } from "../src/lib/metadata";
 import { normalize } from "../src/lib/metadata/justwatch";
@@ -102,7 +103,8 @@ export async function seedList(ownerId: string = LEGACY_HOME_ID) {
   };
 
   for (const e of LIST) {
-    const candidates = await lookupMovie(e.query, e.year);
+    // The original home's list: it was made for (and looks up availability in) the legacy country.
+    const candidates = await lookupMovie(e.query, e.year, LEGACY_COUNTRY);
     const match =
       candidates.find((c) => normalize(c.originalTitle) === normalize(e.query) && Math.abs(c.year - e.year) <= 1) ?? candidates[0];
     if (!match) {

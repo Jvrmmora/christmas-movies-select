@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ComponentProps } from "react";
-import { Eye, EyeOff, type LucideIcon } from "lucide-react";
+import { Eye, EyeOff, Globe, type LucideIcon } from "lucide-react";
 
 interface FieldProps extends Omit<ComponentProps<"input">, "id" | "name"> {
   id: string;
@@ -71,5 +71,59 @@ export function SubmitButton({ pending, idle, busy }: { pending: boolean; idle: 
     <button type="submit" disabled={pending} className="nv-press mt-2 h-[52px] rounded-[14px] bg-berry text-base font-semibold text-white shadow-[0_10px_24px_rgba(200,16,46,.35)] disabled:opacity-70">
       {pending ? busy : idle}
     </button>
+  );
+}
+
+/** A country picker that looks like the other fields. The list is built on the server so both sides agree on the names. */
+export function CountryField({
+  id = "country",
+  label,
+  countries,
+  value,
+  onChange,
+  defaultValue,
+  hint,
+}: {
+  id?: string;
+  label: string;
+  countries: { code: string; name: string }[];
+  /** Controlled use: with `onChange`. */
+  value?: string;
+  onChange?: (code: string) => void;
+  defaultValue?: string;
+  hint?: string;
+}) {
+  const selected = value ?? defaultValue;
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-[13px] font-semibold text-ink/90">
+        {label}
+      </label>
+      <div className="flex h-[52px] items-center gap-2.5 rounded-[14px] border border-line bg-field px-4 transition-[border-color,box-shadow] focus-within:border-gold focus-within:shadow-[0_0_0_4px_var(--gold-soft)]">
+        <Globe className="size-[18px] shrink-0 text-ink-2" strokeWidth={1.8} aria-hidden />
+        <select
+          id={id}
+          name={id}
+          required
+          aria-describedby={hint ? `${id}-hint` : undefined}
+          className="h-full min-w-0 flex-1 bg-transparent text-[17px] text-ink outline-none"
+          {...(onChange ? { value: value ?? "", onChange: (e) => onChange(e.target.value) } : { defaultValue: selected ?? "" })}
+        >
+          <option value="" disabled>
+            Elige un país
+          </option>
+          {countries.map((c) => (
+            <option key={c.code} value={c.code}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      {hint && (
+        <p id={`${id}-hint`} className="text-[13px] text-ink-2">
+          {hint}
+        </p>
+      )}
+    </div>
   );
 }

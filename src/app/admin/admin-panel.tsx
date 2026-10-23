@@ -8,7 +8,7 @@ import { BrandMark } from "@/components/shell/decor";
 import type { AdminHome, AdminOverview } from "@/lib/types";
 
 // A fixed zone keeps server and browser rendering the same text.
-const DAY = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short", year: "numeric", timeZone: "America/Bogota" });
+const DAY = new Intl.DateTimeFormat("es", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 const day = (iso: string) => DAY.format(new Date(iso));
 
 export function AdminPanel({ overview }: { overview: AdminOverview }) {

@@ -11,7 +11,7 @@ import { tooManyAttempts } from "@/lib/rate-limit";
 import { limiter } from "@/lib/rate-limit-store";
 import { createSession, deleteProfileSession } from "@/lib/session";
 import type { ActionResult } from "@/lib/types";
-import { firstIssue, homeNameSchema } from "@/lib/validation";
+import { countrySchema, firstIssue, homeNameSchema } from "@/lib/validation";
 import { errorMessage, requireOwner, requireUser } from "./guard";
 
 export interface HomeFormState {
@@ -52,6 +52,8 @@ async function moveIn(userId: string, homeId: string): Promise<boolean> {
 export async function createHomeAction(_prev: HomeFormState, formData: FormData): Promise<HomeFormState> {
   const name = homeNameSchema.safeParse(formData.get("name"));
   if (!name.success) return { error: firstIssue(name.error) };
+  const country = countrySchema.safeParse(formData.get("country"));
+  if (!country.success) return { error: firstIssue(country.error) };
 
   try {
     const { userId, homeId: current } = await requireUser();
@@ -67,7 +69,7 @@ export async function createHomeAction(_prev: HomeFormState, formData: FormData)
     const now = new Date();
     const homeId = randomUUID();
     await withFreshInviteCode((inviteCode) =>
-      homes.insertOne({ _id: homeId, name: name.data, inviteCode, createdBy: userId, createdAt: now, lastActiveAt: now }),
+      homes.insertOne({ _id: homeId, name: name.data, inviteCode, country: country.data, createdBy: userId, createdAt: now, lastActiveAt: now }),
     );
     // Concurrent sign-ups could slip past the earlier check; settle it after the fact.
     if ((await homes.countDocuments()) > homeCap()) {

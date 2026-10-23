@@ -194,7 +194,7 @@ export function SuggestionsBrowser({ suggestions: initial, totalCatalog }: { sug
           className={`inline-flex h-11 items-center gap-2 rounded-full border-[1.5px] px-4 text-sm font-semibold text-ink ${onlyAvailable ? "border-gold bg-gold-soft" : "border-line bg-surface"}`}
         >
           {onlyAvailable && <Check className="size-4" strokeWidth={2.6} aria-hidden />}
-          Solo con plataforma en Colombia
+          Solo con plataforma disponible
         </button>
         <label className="flex items-center gap-2 text-sm text-ink-2">
           Plataforma

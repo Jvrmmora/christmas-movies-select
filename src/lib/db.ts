@@ -2,6 +2,7 @@ import "server-only";
 import { MongoClient, type Collection, type ObjectId } from "mongodb";
 import { attachDatabasePool } from "@vercel/functions";
 import type { Avatar } from "./avatar";
+import type { CountryCode } from "./countries";
 import type { CalendarState, MovieData, RangePreset } from "./types";
 
 export interface MovieDoc extends MovieData {
@@ -49,6 +50,10 @@ export interface HomeDoc {
   createdBy?: string;
   createdAt: Date;
   lastActiveAt: Date;
+  /** When the starter classics were first shown to this home; absent until then. */
+  starterOfferedAt?: Date;
+  /** Where this home looks up where to watch; absent on homes made before countries existed (see LEGACY_COUNTRY). */
+  country?: CountryCode;
 }
 
 /** One person's sign-in. Belongs to at most one home; null until they create or join one. */

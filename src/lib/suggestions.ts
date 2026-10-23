@@ -1,4 +1,5 @@
 import { cacheLife, cacheTag } from "next/cache";
+import type { CountryCode } from "./countries";
 import type { Candidate } from "./types";
 import { MetadataError, searchBatch } from "./metadata/justwatch";
 
@@ -73,28 +74,28 @@ export const STARTER_PICKS: { title: string; year: number }[] = [
   { title: "The Santa Clause", year: 1994 },
 ];
 
-/** STARTER_PICKS with posters and data, in the same order. Cached and shared like the suggestion pool. */
-export async function getStarterPicks(): Promise<Candidate[]> {
+/** STARTER_PICKS with posters and data, in the same order. Cached and shared by every home of the same country. */
+export async function getStarterPicks(country: CountryCode): Promise<Candidate[]> {
   "use cache";
   cacheLife({ stale: 3600, revalidate: 43200, expire: 604800 });
   cacheTag("starter");
 
-  const found = (await searchBatch(STARTER_PICKS)).filter((c): c is Candidate => !!c);
+  const found = (await searchBatch(STARTER_PICKS, country)).filter((c): c is Candidate => !!c);
   // An empty answer means JustWatch failed: throw so a failure is never cached.
   if (!found.length) throw new MetadataError("No pudimos cargar las películas sugeridas.");
   return found;
 }
 
 /**
- * Candidate pool for the "Sugeridas" page. Cached and shared: it knows nothing about
- * who is asking; the library is subtracted per request.
+ * Candidate pool for the "Sugeridas" page. Cached per country and shared by every home there: it knows
+ * nothing about who is asking; the library is subtracted per request.
  */
-export async function getSuggestionPool(): Promise<Candidate[]> {
+export async function getSuggestionPool(country: CountryCode): Promise<Candidate[]> {
   "use cache";
   cacheLife({ stale: 3600, revalidate: 43200, expire: 604800 });
   cacheTag("suggestions");
 
-  const found = await searchBatch(CHRISTMAS_CATALOG);
+  const found = await searchBatch(CHRISTMAS_CATALOG, country);
   const byId = new Map<string, Candidate>();
   for (const c of found) if (c) byId.set(c.justwatchId, c);
   // An empty answer means JustWatch failed: throw so a failure is never cached.

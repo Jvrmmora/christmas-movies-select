@@ -1,20 +1,27 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useSyncExternalStore } from "react";
 import { House, Ticket } from "lucide-react";
 import { logoutAction } from "@/actions/auth";
 import { createHomeAction, joinHomeAction, type HomeFormState } from "@/actions/home";
 import { AuthHeading } from "@/components/auth/auth-shell";
-import { Field, FormError, SubmitButton } from "@/components/auth/fields";
+import { CountryField, Field, FormError, SubmitButton } from "@/components/auth/fields";
+import { guessCountry } from "@/lib/countries";
 
 type Tab = "create" | "join";
+
+/** The browser language never changes while the page is open, so there is nothing to subscribe to. */
+const subscribeNever = () => () => {};
 
 export function WelcomeForm({
   email,
   code,
   invite,
+  countries,
 }: {
   email: string;
+  /** Countries a new home can pick, named in Spanish. */
+  countries: { code: string; name: string }[];
   /** The code from an invite link, valid or not. */
   code?: string;
   /** The home behind `code`, when it still works. */
@@ -23,6 +30,10 @@ export function WelcomeForm({
   const [tab, setTab] = useState<Tab>(code ? "join" : "create");
   const [created, create, creating] = useActionState<HomeFormState, FormData>(createHomeAction, {});
   const [joined, join, joining] = useActionState<HomeFormState, FormData>(joinHomeAction, {});
+  // Start from the country in the browser's language when we serve it (nothing on the server, so both sides agree); the person can change it.
+  const language = useSyncExternalStore(subscribeNever, () => navigator.language, () => "");
+  const [picked, setPicked] = useState<string | null>(null);
+  const country = picked ?? guessCountry(language) ?? "";
 
   return (
     <AuthHeading
@@ -52,6 +63,7 @@ export function WelcomeForm({
       {tab === "create" ? (
         <form action={create} className="nv-fade mt-5 flex flex-col gap-4">
           <Field id="name" label="Nombre de la casa" icon={House} type="text" required autoFocus maxLength={40} autoComplete="off" placeholder="Casa Montaño" />
+          <CountryField label="País de la casa" countries={countries} value={country} onChange={setPicked} hint="De ahí salen las plataformas donde ver cada película. Puedes cambiarlo después en Ajustes." />
           <p className="-mt-2 text-[13px] text-ink-2">Después podrás invitar a tu familia con un link.</p>
           <FormError>{created.error}</FormError>
           <SubmitButton pending={creating} idle="Crear mi casa" busy="Creando…" />

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { cleanProviderName, mapOffers, scoreMatch, toCandidate } from "./justwatch";
 
-// Trimmed real response for "Home Alone" (Colombia, es-CO).
+// Trimmed real response for "Home Alone" (country CO, language es-CO).
 const homeAlone = {
   id: "tm192233",
   objectType: "MOVIE",

@@ -19,7 +19,7 @@ export function SiteFooter() {
           <BrandMark className="size-8 rounded-[10px]" />
           <span className="text-base font-bold tracking-[-0.01em]">Navidad en casa</span>
         </div>
-        <p className="max-w-[460px] text-sm text-ink-2">Sus películas de Navidad, dónde verlas en Colombia y un calendario de adviento con una película por día.</p>
+        <p className="max-w-[460px] text-sm text-ink-2">Sus películas de Navidad, dónde verlas y un calendario de adviento con una película por día.</p>
         <ul className="flex flex-wrap justify-center gap-2" aria-label="Tecnologías">
           {TECH.map((t) => (
             <li key={t} className="rounded-full border border-line bg-surface px-3 py-1 text-xs font-medium text-ink-2">

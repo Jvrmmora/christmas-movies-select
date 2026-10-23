@@ -1,11 +1,12 @@
+import type { CountryCode } from "../countries";
 import type { Candidate, MovieData } from "../types";
 import { getJustWatchTitle, searchJustWatch } from "./justwatch";
 import { omdbRatings } from "./omdb";
 
 export { MetadataError } from "./justwatch";
 
-export async function lookupMovie(title: string, year?: number): Promise<Candidate[]> {
-  return searchJustWatch(title, year);
+export async function lookupMovie(title: string, year: number | undefined, country: CountryCode): Promise<Candidate[]> {
+  return searchJustWatch(title, year, country);
 }
 
 /** Fills rating gaps from OMDb when a key is configured. */
@@ -25,11 +26,11 @@ export async function enrich<T extends MovieData>(data: T): Promise<T> {
 }
 
 /** Fresh ratings, availability and artwork for a saved movie. Titles and notes stay untouched. */
-export async function fetchLatest(justwatchId: string | undefined, title: string, year: number): Promise<Candidate | null> {
+export async function fetchLatest(justwatchId: string | undefined, title: string, year: number, country: CountryCode): Promise<Candidate | null> {
   if (justwatchId) {
-    const byId = await getJustWatchTitle(justwatchId);
+    const byId = await getJustWatchTitle(justwatchId, country);
     if (byId) return enrich(byId);
   }
-  const [best] = await searchJustWatch(title, year);
+  const [best] = await searchJustWatch(title, year, country);
   return best && best.score >= 0.6 ? enrich(best) : null;
 }

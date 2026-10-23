@@ -4,13 +4,13 @@
 
 # Navidad en casa
 
-**Sus películas de Navidad en un solo lugar: dónde verlas en Colombia, cuáles ya vieron y un calendario de adviento con una película por día. Cada casa tiene sus propios perfiles, con avatares navideños.**
+**Sus películas de Navidad en un solo lugar: dónde verlas en su país, cuáles ya vieron y un calendario de adviento con una película por día. Cada casa tiene sus propios perfiles, con avatares navideños.**
 Next.js 16 · MongoDB Atlas · datos automáticos de JustWatch, sin IA ni API keys de pago.
 
 ![Next.js](https://img.shields.io/badge/Next.js-16.4-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6)
 ![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47a248)
-![Tests](https://img.shields.io/badge/tests-84%20pasan-1e9e48)
+![Tests](https://img.shields.io/badge/tests-113%20pasan-1e9e48)
 ![Licencia](https://img.shields.io/badge/licencia-MIT-blue)
 
 <img src="docs/perfiles.jpg" alt="Pantalla «¿Quién está viendo la peli?» con cuatro perfiles: Ana (Santi), Leo (Rudolfo), Sofi (Pino) y Mateo (Jengi)" width="760" />
@@ -40,18 +40,19 @@ Next.js 16 · MongoDB Atlas · datos automáticos de JustWatch, sin IA ni API ke
 ## Qué hace
 
 - **Cuentas, casas y perfiles, como en Netflix o la Switch.** Cada persona entra con **su correo y su clave**. Cada familia tiene su **casa** (su propia lista y calendario) y se suman a ella con un **link de invitación**. Dentro de la casa cada cuenta tiene su **perfil**, y puede haber perfiles sin cuenta para los niños. El perfil se usa para saludar y para saber quién hace qué.
-- **Clásicas para empezar.** Si la casa está vacía, después de crear el perfil se ofrecen 8 clásicas (Mi pobre angelito 1 y 2, El Grinch, Elf, El expreso polar, Realmente amor, Klaus y Santa Cláusula). Ninguna viene marcada y se puede saltar.
+- **Clásicas para empezar.** Si la casa está vacía, después de crear el perfil se ofrecen 8 clásicas (Mi pobre angelito 1 y 2, El Grinch, Elf, El expreso polar, Realmente amor, Klaus y Santa Cláusula). Ninguna viene marcada y se puede saltar. Se ofrecen una sola vez: la primera vez que una casa vacía entra al inicio, aunque llegue por otro camino, la llevan ahí; después, «Ahora no» deja el inicio vacío sin volver a insistir.
 - **Avatares navideños con personalidad.** Doce personajes dibujados en SVG (Santi, Rudolfo, Nieves, Jengi, Duli, Pino, Pingu, Estrellita, Cascanueces, Noela, Ángel y Osi), cada uno con su carácter y su frase. Se personalizan con color de fondo y accesorio (gorro, bufanda, gafas, moño, estrella) y hay un botón «Sorpréndeme».
 - **Quién agregó, quién sugirió.** Cada película guarda quién la agregó, quién la sugirió (pueden ser personas distintas) y quién la editó por última vez. Se ve en el detalle («Sugerida por Rudolfo · agregada por Ana»), en las tarjetas, en el filtro «Sugerida por» y como un avatar colgando bajo cada puerta del calendario. Con el modo sorpresa, las puertas cerradas no lo muestran para no dar pistas.
-- **Agregar con nombre y año.** Busca en JustWatch Colombia y trae el título latinoamericano, el póster, la sinopsis, los géneros, la duración, IMDb, el Tomatómetro (con Certified Fresh) y las plataformas con enlace directo a la película. Todo se puede editar a mano, incluida la opción «Sin plataforma».
+- **Un país por casa.** Al crear la casa se elige el país (ya viene el del idioma del navegador, y se cambia después en Ajustes). De ahí salen los títulos, las plataformas y las sugeridas: México ve «Mi pobre angelito» y España «Solo en casa». Hay 29 países, todos comprobados contra JustWatch; las casas anteriores a esto quedan en Colombia. Al cambiar de país, las películas ya guardadas conservan sus plataformas hasta usar «Actualizar datos» en cada una.
+- **Agregar con nombre y año.** Busca en JustWatch, en el país de la casa, y trae el título como se conoce allá, el póster, la sinopsis, los géneros, la duración, IMDb, el Tomatómetro (con Certified Fresh) y las plataformas con enlace directo a la película. Todo se puede editar a mano, incluida la opción «Sin plataforma».
 - **Sin duplicados.** Si buscan una película que ya tienen, el resultado sale bloqueado con el aviso «Ya lo tienes en tu biblioteca» y un enlace para verla. Se detecta por el id de JustWatch, el de IMDb o título y año, así que también atrapa las escritas a mano. Al importar una lista pasa lo mismo: esas filas quedan desmarcadas.
-- **Sugeridas.** Una página con películas navideñas conocidas (clásicas y recientes) que todavía no están en su lista, con sus puntuaciones y plataformas en Colombia. Al tocar una película se abre su detalle (sinopsis, géneros, puntuaciones, todas las plataformas y el tráiler) antes de agregarla; también se agregan con un toque desde la tarjeta. Al final, «Cargar más sugeridas» trae otras películas navideñas (buscadas en JustWatch, sin repetir las que ya salieron ni las que ya tienen), y se puede filtrar por plataforma u ordenar por IMDb, Rotten Tomatoes o año.
+- **Sugeridas.** Una página con películas navideñas conocidas (clásicas y recientes) que todavía no están en su lista, con sus puntuaciones y plataformas en el país de la casa. Al tocar una película se abre su detalle (sinopsis, géneros, puntuaciones, todas las plataformas y el tráiler) antes de agregarla; también se agregan con un toque desde la tarjeta. Al final, «Cargar más sugeridas» trae otras películas navideñas (buscadas en JustWatch, sin repetir las que ya salieron ni las que ya tienen), y se puede filtrar por plataforma u ordenar por IMDb, Rotten Tomatoes o año.
 - **Importar una lista completa.** Pegan «Título (año)» una por línea, revisan las coincidencias dudosas y guardan todas de una vez.
 - **Galería.** El botón «Explorar en galería» (o el ícono de cada tarjeta) abre un carrusel casi a pantalla completa para recorrer sus películas: carátula, año, puntuaciones y plataformas de la que está al centro. Se navega con las flechas, con ← → del teclado o deslizando, y sigue el orden y los filtros de la lista.
 - **Marcar como vista** con un check verde animado y un sonido de campana (Web Audio, sin archivos). También tienen favoritas (el corazón se toca en el detalle o directo en la tarjeta, en la lista y en el inicio), calificación propia de 1 a 5 estrellas y notas.
 - **Resumen de la casa.** Una página (`/resumen`, con enlace desde la tarjeta de progreso del inicio) que cuenta cómo es su casa a partir de la biblioteca: una etiqueta según el género que más ven («Casa de risas», «Casa romántica»…), las cifras (vistas, horas ya vistas y por ver, y la plataforma principal con su logo, la que incluye más películas), los géneros con barras y quién sugiere más (cuatro a la vez, con «Mostrar más»). Abajo van dos bloques separados: **las favoritas**, solo las que tienen corazón y ordenadas por estrellas, y **la mejor calificada**, la de más estrellas tenga o no corazón. Se comparte como texto con un botón. Todo se calcula en código, sin IA. Como el corazón y las estrellas son de la casa, no de cada perfil, ninguna de las dos tarjetas distingue gustos por persona.
-- **Calendario de adviento.** Se arma en dos pasos. **1. Rango:** eligen «Desde hoy», el 1 de noviembre, el 1 de diciembre o una fecha propia (termina el 24 de diciembre) y ven cuántos días quedan frente a sus películas pendientes. **2. Organizar:** una vista ancha con la cuadrícula del mes y las carátulas sin día; el rango queda como una etiqueta con «Cambiar». Las películas se arrastran a cada día. Tiene modo sorpresa (los días futuros quedan cerrados como regalos), «Repartir automáticamente» (asigna todas las pendientes aunque cambien el rango de fechas), «Mezclar» y «Vaciar» con opción de deshacer. Los contadores de arriba distinguen días libres de películas sin día, y las películas vistas que no tienen día aparecen en el panel lateral para que ninguna quede escondida. Al abrir una puerta se ve la película en grande: póster, sinopsis completa, puntuaciones y todas las plataformas con su enlace.
-- **Inicio que saluda** a quien está viendo («Buenas noches, Ana») con su personaje y su frase, muestra una cuenta regresiva compacta hasta la medianoche de Navidad (hora de ustedes, con días, horas, minutos y segundos) y la película que toca hoy.
+- **Calendario de adviento.** Se arma en dos pasos. **1. Rango:** eligen «Desde hoy», el 1 de noviembre, el 1 de diciembre o una fecha propia (termina el 24 de diciembre) y ven cuántos días quedan frente a sus películas pendientes. **2. Organizar:** una vista ancha con la cuadrícula del mes y las carátulas sin día; el rango queda como una etiqueta con «Cambiar». Las películas se arrastran a cada día. Tiene modo sorpresa (los días futuros quedan cerrados como regalos), «Repartir automáticamente» (asigna todas las pendientes aunque cambien el rango de fechas, primero las favoritas y luego las de mejor IMDb), **«Repartir con inteligencia»** (elige qué película va en cada día: las largas, de 2 h en adelante, el sábado y el domingo; las cortas, entre semana; las mejor calificadas hacia el final; sin repetir el género principal dos días seguidos; y deja Nochebuena libre para elegirla a mano, salvo que las películas necesiten ese día), «Mezclar» y «Vaciar» con opción de deshacer. Un botón «?» junto a «Mezclar» explica qué hace cada herramienta. Los contadores de arriba distinguen días libres de películas sin día, y las películas vistas que no tienen día aparecen en el panel lateral para que ninguna quede escondida. Al abrir una puerta se ve la película en grande: póster, sinopsis completa, puntuaciones y todas las plataformas con su enlace.
+- **Inicio que saluda** a quien está viendo («Buenas noches, Ana») con su personaje y su frase, muestra una cuenta regresiva compacta hasta la medianoche de Navidad (hora de ustedes, con días, horas, minutos y segundos) y la película que toca hoy. Si hoy es anterior al primer día del calendario, en vez de «Hoy no hay película» dice cuándo empieza y cuántos días faltan.
 - **Diseño navideño:** logo de árbol de Navidad, modo **automático** (oscuro de 6 p. m. a 6 a. m. según la hora del dispositivo) con menú Automático / Claro / Oscuro y transición de círculo, nieve, guirnalda de luces, tipografía de Apple (SF Pro Display y Text, con Inter de respaldo), botón flotante «Agregar», un árbol de Navidad animado en las pantallas de entrar y crear casa, pie de página con créditos y vista móvil con barra de pestañas.
 
 <div align="center">
@@ -84,7 +85,9 @@ Al registrarse llega un **correo de bienvenida** con el botón para seguir al pa
 
 **Olvidé la clave.** En `/recuperar` escriben su correo y reciben (con [nodemailer](https://nodemailer.com)) un código de 6 números que vence en 15 minutos; con él eligen la clave nueva. La respuesta es la misma exista o no la cuenta. El código se guarda solo como hash, admite 5 intentos y se pide como máximo 3 veces por hora por correo.
 
-**Ajustes** (menú del avatar → «Ajustes», `/ajustes`): el **nombre** de la casa y la tarjeta **Invitar** (copiar el link o el código, o **generar uno nuevo**, con lo que el anterior deja de funcionar al instante). En **Mi cuenta**: cambiar el **correo** o la **clave**, para lo cual piden la clave actual. El menú del avatar también tiene «Copiar link de invitación».
+**Ajustes** (menú del avatar → «Ajustes», `/ajustes`): el **nombre** de la casa, su **país** y la tarjeta **Invitar** (copiar el link o el código, o **generar uno nuevo**, con lo que el anterior deja de funcionar al instante). En **Mi cuenta**: cambiar el **correo** o la **clave**, para lo cual piden la clave actual. El menú del avatar también tiene «Copiar link de invitación».
+
+**Eliminar mi cuenta** (al final de Ajustes) pide la clave y avisa antes qué se pierde. Si hay otras cuentas en la casa, solo se borran la cuenta y su perfil: la casa y sus películas siguen, y lo que esa persona agregó o sugirió aparece como «alguien que ya no está». Si es la única cuenta, se borra también la casa con sus películas, calendario y perfiles. Los perfiles sin cuenta (los niños) se borran aparte, desde «Administrar perfiles»; el que está ligado a una cuenta solo se va con ella.
 
 
 | Límite | Valor | Para qué |
@@ -117,7 +120,7 @@ flowchart LR
   SA --> RL["Límites<br/>intentos, topes"]
   DAL <--> DB[("MongoDB Atlas")]
   RL <--> DB
-  SA -->|"buscar título + año"| JW["JustWatch GraphQL<br/>Colombia, es-CO"]
+  SA -->|"buscar título + año"| JW["JustWatch GraphQL<br/>país de la casa"]
   SA -.->|"opcional"| OM["OMDb<br/>ratings faltantes"]
   CR["Vercel Cron<br/>semanal"] -->|"borra casas inactivas"| DB
 ```
@@ -131,7 +134,7 @@ sequenceDiagram
   participant M as MongoDB
   U->>F: Home Alone 1990 y Buscar
   F->>A: searchMoviesAction
-  A->>J: catálogo de Colombia, si no aparece el de EE. UU.
+  A->>J: catálogo del país de la casa, si no aparece el de EE. UU.
   J-->>A: títulos, ofertas y puntuaciones
   A-->>F: coincidencias ordenadas por parecido
   U->>F: eligen Mi pobre angelito, quién la sugirió y Guardar
@@ -163,7 +166,7 @@ sequenceDiagram
 | **MongoDB Atlas** (clúster M0) | Guardar casas, perfiles, películas y calendarios | Gratis |
 | **Vercel** (plan Hobby) | Publicarla en internet y correr la limpieza semanal | Gratis |
 | **Cuenta SMTP** *(para «olvidé la clave»)* | Enviar el código por correo, por ejemplo Gmail con una contraseña de aplicación | Gratis |
-| JustWatch | Pósters, sinopsis, ratings y plataformas en Colombia | Gratis, sin clave |
+| JustWatch | Pósters, sinopsis, ratings y plataformas en el país de cada casa | Gratis, sin clave |
 | OMDb *(opcional)* | Completar IMDb o Rotten Tomatoes cuando JustWatch no los trae | Gratis hasta 1.000 consultas al día |
 
 ## Variables de entorno
@@ -229,7 +232,7 @@ pnpm seed --email tu@correo.com  # la casa de una cuenta
 **Pruebas y chequeos:**
 
 ```bash
-pnpm test        # 84 pruebas: calendario y reparto automático, duplicados, saludo, formato, JustWatch, claves, códigos de invitación, cuentas y códigos por correo, tema automático, límites, créditos de películas, avatares, resumen de la casa
+pnpm test        # 113 pruebas: calendario y reparto automático, duplicados, saludo, formato, JustWatch, claves, códigos de invitación, cuentas y códigos por correo, tema automático, límites, créditos de películas, avatares, resumen de la casa
 pnpm lint
 pnpm typecheck
 pnpm build
@@ -282,8 +285,8 @@ El archivo [`vercel.json`](vercel.json) programa la limpieza semanal (lunes, 8:0
 
 | Decisión | Por qué |
 |---|---|
-| **JustWatch GraphQL con `language: "es-CO"`** en vez de IA o TMDB | Trae los títulos como se conocen en Colombia («Mi pobre angelito», no «Solo en casa»), las plataformas del país con enlace directo, IMDb y el Tomatómetro, sin clave ni costo. Es una API no oficial, así que todo queda editable y hay un botón para volver a consultar. |
-| **Respaldo al catálogo de EE. UU.** | Algunos títulos («Aquella Navidad», de Netflix) no aparecen en el buscador de Colombia, aunque sí tienen datos y ofertas colombianas. |
+| **JustWatch GraphQL, con el país de cada casa** en vez de IA o TMDB | Trae los títulos como se conocen en ese país («Mi pobre angelito» en México, «Solo en casa» en España), las plataformas de allí con enlace directo, IMDb y el Tomatómetro, sin clave ni costo. Es una API no oficial, así que todo queda editable y hay un botón para volver a consultar. |
+| **Respaldo al catálogo de EE. UU.** | Algunos títulos («Aquella Navidad», de Netflix) no aparecen en el buscador de algunos países, aunque sí tienen datos y ofertas allí. Se busca primero en el catálogo del país y luego en el de EE. UU., siempre con las ofertas del país de la casa. |
 | **Cache Components de Next 16**: shell estático + `<Suspense>` | Cada página carga al instante con esqueletos y los datos de Mongo llegan en streaming. Las mutaciones llaman `refresh()` y la UI responde al momento con `useOptimistic`. |
 | **Casa (clave) → perfil (sin clave)**, ambos en cookies JWT firmadas con `jose` | Se parece a una cuenta de Netflix: la familia comparte una clave y cada persona elige su perfil. No hay cuentas por persona ni correos. `proxy.ts` hace el control rápido en dos pasos, y cada lectura y cada Server Action vuelve a verificar la sesión. |
 | **`ownerId` pasó a ser el id de la casa** | Todos los documentos ya lo llevaban; así la casa original conserva su identificador (`household`) y migrar no reescribe ningún dato. |
@@ -299,7 +302,7 @@ El archivo [`vercel.json`](vercel.json) programa la limpieza semanal (lunes, 8:0
 
 ```text
 users       { _id, email (único), passwordHash, homeId | null, reset?{codeHash, expiresAt, attempts}, createdAt, lastActiveAt }
-homes       { _id, name, inviteCode (único), createdBy, createdAt, lastActiveAt }
+homes       { _id, name, inviteCode (único), country?, createdBy, createdAt, lastActiveAt, starterOfferedAt? }   · sin country = Colombia (casas anteriores)
 profiles    { _id, homeId, name, avatar{character, bg, accessory}, userId? (único por casa), createdAt }
 rate_limits { _id (clave del límite), count, expiresAt }   · TTL: se borra sola
 movies      { ownerId (= id de la casa), title, originalTitle, year, posterUrl, backdropUrl, synopsis, genres[],
@@ -336,6 +339,9 @@ src/
     ├── avatar.ts · credits.ts    # personajes, colores y accesorios · texto «sugerida por…»
     ├── calendar.ts          # rangos, celdas del mes, reparto automático
     ├── insights.ts          # resumen de la casa: géneros, horas, plataforma principal, favoritas (función pura)
+    ├── smart-calendar.ts    # «Repartir con inteligencia»: qué película va en cada día (función pura)
+    ├── countries.ts         # países que puede elegir una casa, su idioma en JustWatch y sus nombres
+    ├── starter.ts           # cuándo se ofrecen las clásicas para empezar (una sola vez)
     ├── library-match.ts     # ¿ya está en la biblioteca? (JustWatch id, IMDb id, título + año)
     ├── suggestions.ts       # catálogo navideño y caché de sugeridas
     └── *.test.ts            # pruebas con Vitest
@@ -373,6 +379,9 @@ docs/                        # logo y capturas del README
 - [x] Casas de registro abierto (nombre y clave), perfiles y avatares navideños, con quién agregó y sugirió cada película
 - [x] Límites anti-abuso y limpieza de casas inactivas
 - [x] Resumen de la casa y corazón de favorita en las tarjetas
+- [x] Calendario inteligente, con ayuda para cada botón
+- [x] Un país por casa: plataformas y títulos de cualquier lugar, no solo de Colombia
+- [x] Eliminar la propia cuenta
 - [ ] PIN opcional por perfil
 - [ ] Calificación y favoritas por perfil (hoy son de la casa)
 - [ ] Recordatorio diario de «Hoy toca» (Vercel Cron + correo o push)

@@ -7,6 +7,7 @@ import { seasonFor } from "@/lib/calendar";
 import { LIMITS, RATE_RULES } from "@/lib/limits";
 import { tooManyAttempts } from "@/lib/rate-limit";
 import { limiter } from "@/lib/rate-limit-store";
+import { getHomeCountry } from "@/lib/homes";
 import { enrich, fetchLatest, lookupMovie } from "@/lib/metadata";
 import { getLibraryIndex } from "@/lib/library";
 import { findInLibrary } from "@/lib/library-match";
@@ -63,7 +64,8 @@ export async function searchMoviesAction(title: string, year?: number, ignoreId?
     const budget = await limiter.hit(`search:${ownerId}`, RATE_RULES.search);
     if (!budget.allowed) return { ok: false, error: tooManyAttempts(budget.resetsAt) };
     const y = year && Number.isInteger(year) && year > 1880 && year < 2100 ? year : undefined;
-    const [candidates, library] = await Promise.all([lookupMovie(q, y), getLibraryIndex(ownerId)]);
+    const country = await getHomeCountry(ownerId);
+    const [candidates, library] = await Promise.all([lookupMovie(q, y, country), getLibraryIndex(ownerId)]);
     // Flag what is already in the library so the form can block it.
     const flagged = candidates.map((c) => ({ ...c, inLibrary: findInLibrary(library, c, ignoreId) }));
     return { ok: true, data: flagged };
@@ -185,14 +187,14 @@ export async function setNotesAction(id: string, notes: string): Promise<ActionR
   return patchMovie(id, { notes: String(notes ?? "").trim().slice(0, 2000) }, true);
 }
 
-/** Re-fetches ratings, artwork and Colombian availability. Keeps the user's title and notes. */
+/** Re-fetches ratings, artwork and availability in the home's country. Keeps the user's title and notes. */
 export async function refreshMetadataAction(id: string): Promise<ActionResult> {
   try {
     const ownerId = await requireOwner();
     const { movies } = await collections();
     const doc = await movies.findOne({ _id: oid(id), ownerId });
     if (!doc) return { ok: false, error: "Película no encontrada" };
-    const latest = await fetchLatest(doc.externalIds?.justwatchId, doc.originalTitle || doc.title, doc.year);
+    const latest = await fetchLatest(doc.externalIds?.justwatchId, doc.originalTitle || doc.title, doc.year, await getHomeCountry(ownerId));
     if (!latest) return { ok: false, error: "No encontramos datos nuevos para esta película." };
     await movies.updateOne(
       { _id: doc._id },

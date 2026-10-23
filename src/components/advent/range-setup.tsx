@@ -11,7 +11,7 @@ import { useNow } from "@/components/use-now";
 import { parseKey, PRESETS, presetStart, rangeDays } from "@/lib/calendar";
 import type { CalendarState, RangePreset } from "@/lib/types";
 
-const shortFmt = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short" });
+const shortFmt = new Intl.DateTimeFormat("es", { day: "numeric", month: "short" });
 
 /** Step 1 of the calendar: choose where the advent range starts, then save and go organise it. */
 export function RangeSetup({ calendar, pendingCount }: { calendar: CalendarState; pendingCount: number }) {

@@ -84,7 +84,7 @@ export async function sendWelcome(to: string, next: string, homeName?: string): 
       html: layout(`  <p>¡Hola!</p>
   <p>${intro(`<strong>${escapeHtml(homeName ?? "")}</strong>`)}</p>
 ${button(next, homeName ? `Unirme a ${homeName}` : "Seguir")}
-  <p>Con Navidad en casa tienen dónde ver cada película en Colombia, cuáles ya vieron y un calendario de adviento con una película por día hasta Nochebuena.</p>
+  <p>Con Navidad en casa tienen dónde ver cada película, cuáles ya vieron y un calendario de adviento con una película por día hasta Nochebuena.</p>
   <p style="color:#6b6b70;font-size:14px">Entras siempre con este correo (${escapeHtml(to)}) y tu clave. Si la olvidas, te enviamos un código a este correo.</p>`),
     },
     `Bienvenida para ${to} → ${next}`,
