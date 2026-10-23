@@ -46,18 +46,15 @@ export function SuggestionsBrowser({ suggestions: initial, totalCatalog }: { sug
   const [platform, setPlatform] = useState("all");
   const [sort, setSort] = useState<Sort>("imdb");
   const [detail, setDetail] = useState<Candidate | null>(null);
-  // Each "load more" click is its own batch, kept apart so the new cards land at the end, not inside the sort.
+  // Each fetch is its own batch, kept apart so the new cards land at the end, not inside the sort.
   const [batches, setBatches] = useState<Candidate[][]>([]);
-  const newestRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const [failed, setFailed] = useState(false);
   const [cursor, setCursor] = useState<SuggestionCursor | null>(null);
   const [exhausted, setExhausted] = useState(false);
   const [loadingMore, startLoadingMore] = useTransition();
   // Everything ever shown stays in `suggestions`, so "load more" can never repeat a card.
   const suggestions = useMemo(() => dedupe([...initial, ...batches.flat()]), [initial, batches]);
-
-  useEffect(() => {
-    if (batches.length) newestRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [batches.length]);
 
   const platforms = useMemo(() => {
     const map = new Map<string, { key: string; name: string; logoUrl?: string; count: number }>();
@@ -109,10 +106,10 @@ export function SuggestionsBrowser({ suggestions: initial, totalCatalog }: { sug
       }),
     );
   }, [initial, batches]);
-  const shown = sections.map(visible);
-  const list = shown.flat();
+  const list = sections.flatMap(visible);
 
   const loadMore = () => {
+    setFailed(false);
     startLoadingMore(async () => {
       const known = new Set(suggestions.map((c) => c.justwatchId));
       const knownKeys = new Set(suggestions.map(dupKey));
@@ -122,6 +119,7 @@ export function SuggestionsBrowser({ suggestions: initial, totalCatalog }: { sug
       for (let attempt = 0; attempt < 4 && !fresh.length; attempt++) {
         const res = await loadMoreSuggestionsAction([...known], next);
         if (!res.ok) {
+          setFailed(true);
           toast.error(res.error);
           return;
         }
@@ -136,13 +134,23 @@ export function SuggestionsBrowser({ suggestions: initial, totalCatalog }: { sug
       }
       setCursor(next);
       if (!next) setExhausted(true);
-      if (fresh.length) {
-        setBatches((b) => [...b, fresh]);
-        play("jingle");
-        toast.success(`${fresh.length} sugeridas nuevas, al final de la lista`);
-      } else if (next) toast("No salió nada nuevo en esta tanda. Prueben de nuevo.");
+      if (fresh.length) setBatches((b) => [...b, fresh]);
     });
   };
+
+  // Infinite scroll: a fresh observer after every load re-checks the sentinel, so a short filtered list keeps filling.
+  const canLoadMore = !exhausted && !loadingMore && !failed;
+  const loadMoreRef = useRef(loadMore);
+  useEffect(() => {
+    loadMoreRef.current = loadMore;
+  });
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || !canLoadMore) return;
+    const io = new IntersectionObserver((entries) => entries[0]?.isIntersecting && loadMoreRef.current(), { rootMargin: "600px 0px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [canLoadMore, batches.length, cursor]);
 
   const add = (c: Candidate) => {
     setAdding(c.justwatchId);
@@ -211,67 +219,52 @@ export function SuggestionsBrowser({ suggestions: initial, totalCatalog }: { sug
       </div>
 
       {list.length ? (
-        <div className="flex flex-col gap-10">
-          {shown.map((items, n) =>
-            items.length ? (
-              <div key={n} ref={n === batches.length && n > 0 ? newestRef : undefined} className="flex scroll-mt-24 flex-col gap-5">
-                {n > 0 && (
-                  <h2 className="flex items-center gap-2 text-lg font-bold">
-                    <Sparkles className="size-5 text-gold" strokeWidth={1.8} aria-hidden />
-                    {n === batches.length ? "Recién cargadas" : "Más sugeridas"}
-                    <span className="rounded-full bg-gold-soft px-2.5 py-0.5 text-[13px] font-semibold text-gold-ink">{items.length}</span>
-                  </h2>
-                )}
-                <ul className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-x-5 gap-y-8 sm:grid-cols-[repeat(auto-fill,minmax(190px,1fr))]">
-                  {items.map((c, i) => {
-                    const subs = subscriptionOffers(c.streaming).filter((o, idx, all) => all.findIndex((x) => (x.logoUrl ?? x.name) === (o.logoUrl ?? o.name)) === idx);
-                    const busy = adding === c.justwatchId;
-                    return (
-                      <li key={c.justwatchId} className="nv-fade flex min-w-0 flex-col gap-2.5" style={{ animationDelay: `${Math.min(i, 12) * 0.03}s` }}>
-                        <div className="relative aspect-[2/3] overflow-hidden rounded-2xl shadow-card">
-                          <button type="button" onClick={() => setDetail(c)} aria-label={`Ver detalle de ${c.title}`} className="block h-full w-full">
-                            <Poster src={c.posterUrl} title={c.title} className="h-full w-full" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => add(c)}
-                            disabled={busy}
-                            aria-label={`Agregar ${c.title} a mi lista`}
-                            className="nv-press absolute right-2.5 bottom-2.5 left-2.5 inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-berry text-sm font-semibold text-white shadow-[0_6px_18px_rgba(0,0,0,.35)] disabled:opacity-80"
-                          >
-                            {busy ? <Loader2 className="nv-spin size-4" aria-hidden /> : <Plus className="size-4" strokeWidth={2.4} aria-hidden />}
-                            {busy ? "Agregando…" : "Agregar a mi lista"}
-                          </button>
-                        </div>
-                        <div className="min-w-0">
-                          <button type="button" onClick={() => setDetail(c)} className="block max-w-full truncate text-left text-[15px] font-semibold hover:underline">
-                            {c.title}
-                          </button>
-                          <div className="truncate text-[13px] text-ink-2">
-                            {c.year}
-                            {c.runtimeMinutes ? ` · ${formatRuntime(c.runtimeMinutes)}` : ""}
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between gap-2">
-                          <RatingBadges ratings={c.ratings} />
-                          <span className="ml-auto flex items-center gap-1">
-                            {subs.length ? (
-                              subs.slice(0, 2).map((o) => <ProviderLogo key={o.provider} src={o.logoUrl} name={o.name} />)
-                            ) : (
-                              <span className="shrink-0 rounded-md bg-surface-2 px-1.5 py-0.5 text-[11px] font-semibold whitespace-nowrap text-ink-2">
-                                {c.streaming.length ? "Alquiler" : "Sin plataforma"}
-                              </span>
-                            )}
-                          </span>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ) : null,
-          )}
-        </div>
+        <ul className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-x-5 gap-y-8 sm:grid-cols-[repeat(auto-fill,minmax(190px,1fr))]">
+          {list.map((c, i) => {
+            const subs = subscriptionOffers(c.streaming).filter((o, idx, all) => all.findIndex((x) => (x.logoUrl ?? x.name) === (o.logoUrl ?? o.name)) === idx);
+            const busy = adding === c.justwatchId;
+            return (
+              <li key={c.justwatchId} className="nv-fade flex min-w-0 flex-col gap-2.5" style={{ animationDelay: `${(i % 12) * 0.03}s` }}>
+                <div className="relative aspect-[2/3] overflow-hidden rounded-2xl shadow-card">
+                  <button type="button" onClick={() => setDetail(c)} aria-label={`Ver detalle de ${c.title}`} className="block h-full w-full">
+                    <Poster src={c.posterUrl} title={c.title} className="h-full w-full" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => add(c)}
+                    disabled={busy}
+                    aria-label={`Agregar ${c.title} a mi lista`}
+                    className="nv-press absolute right-2.5 bottom-2.5 left-2.5 inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-berry text-sm font-semibold text-white shadow-[0_6px_18px_rgba(0,0,0,.35)] disabled:opacity-80"
+                  >
+                    {busy ? <Loader2 className="nv-spin size-4" aria-hidden /> : <Plus className="size-4" strokeWidth={2.4} aria-hidden />}
+                    {busy ? "Agregando…" : "Agregar a mi lista"}
+                  </button>
+                </div>
+                <div className="min-w-0">
+                  <button type="button" onClick={() => setDetail(c)} className="block max-w-full truncate text-left text-[15px] font-semibold hover:underline">
+                    {c.title}
+                  </button>
+                  <div className="truncate text-[13px] text-ink-2">
+                    {c.year}
+                    {c.runtimeMinutes ? ` · ${formatRuntime(c.runtimeMinutes)}` : ""}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <RatingBadges ratings={c.ratings} />
+                  <span className="ml-auto flex items-center gap-1">
+                    {subs.length ? (
+                      subs.slice(0, 2).map((o) => <ProviderLogo key={o.provider} src={o.logoUrl} name={o.name} />)
+                    ) : (
+                      <span className="shrink-0 rounded-md bg-surface-2 px-1.5 py-0.5 text-[11px] font-semibold whitespace-nowrap text-ink-2">
+                        {c.streaming.length ? "Alquiler" : "Sin plataforma"}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       ) : (
         <div className="flex flex-col items-center gap-3 rounded-[28px] bg-surface px-6 py-[72px] text-center shadow-card">
           <PartyPopper className="size-[64px] text-pine" strokeWidth={1.2} aria-hidden />
@@ -281,22 +274,23 @@ export function SuggestionsBrowser({ suggestions: initial, totalCatalog }: { sug
           </p>
         </div>
       )}
-      <div className="flex flex-col items-center gap-3 pt-2">
+      <div ref={sentinelRef} className="flex min-h-14 flex-col items-center justify-center gap-3 pt-2">
         {exhausted ? (
           <p className="rounded-2xl bg-surface-2 px-5 py-3 text-sm font-semibold text-ink-2">Ya no hay más sugeridas por ahora. ¡Vuelvan pronto!</p>
+        ) : failed ? (
+          <button
+            type="button"
+            onClick={loadMore}
+            className="nv-press inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-berry px-6 text-[15px] font-bold text-white"
+          >
+            <Sparkles className="size-5" strokeWidth={2} aria-hidden />
+            Reintentar
+          </button>
         ) : (
-          <>
-            <button
-              type="button"
-              onClick={loadMore}
-              disabled={loadingMore}
-              className="nv-press inline-flex h-14 w-full max-w-[420px] items-center justify-center gap-2.5 rounded-2xl bg-berry px-6 text-base font-bold text-white shadow-[0_10px_28px_rgba(200,16,46,.35)] disabled:opacity-80"
-            >
-              {loadingMore ? <Loader2 className="nv-spin size-5" aria-hidden /> : <Sparkles className="size-5" strokeWidth={2} aria-hidden />}
-              {loadingMore ? "Buscando más películas…" : "Cargar más sugeridas"}
-            </button>
-            <p className="text-xs text-ink-2">Sin repetir las que ya vieron aquí ni las que ya están en su lista.</p>
-          </>
+          <p role="status" className="flex items-center gap-2 text-sm font-semibold text-ink-2">
+            <Loader2 className="nv-spin size-4" aria-hidden />
+            Buscando más películas…
+          </p>
         )}
       </div>
       <SuggestionDetail movie={detail} busy={!!detail && adding === detail.justwatchId} onAdd={add} onClose={() => setDetail(null)} />
