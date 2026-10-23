@@ -10,7 +10,7 @@ Next.js 16 · MongoDB Atlas · datos automáticos de JustWatch, sin IA ni API ke
 ![Next.js](https://img.shields.io/badge/Next.js-16.4-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6)
 ![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47a248)
-![Tests](https://img.shields.io/badge/tests-64%20pasan-1e9e48)
+![Tests](https://img.shields.io/badge/tests-84%20pasan-1e9e48)
 ![Licencia](https://img.shields.io/badge/licencia-MIT-blue)
 
 <img src="docs/perfiles.jpg" alt="Pantalla «¿Quién está viendo la peli?» con cuatro perfiles: Ana (Santi), Leo (Rudolfo), Sofi (Pino) y Mateo (Jengi)" width="760" />
@@ -48,7 +48,8 @@ Next.js 16 · MongoDB Atlas · datos automáticos de JustWatch, sin IA ni API ke
 - **Sugeridas.** Una página con películas navideñas conocidas (clásicas y recientes) que todavía no están en su lista, con sus puntuaciones y plataformas en Colombia. Al tocar una película se abre su detalle (sinopsis, géneros, puntuaciones, todas las plataformas y el tráiler) antes de agregarla; también se agregan con un toque desde la tarjeta. Al final, «Cargar más sugeridas» trae otras películas navideñas (buscadas en JustWatch, sin repetir las que ya salieron ni las que ya tienen), y se puede filtrar por plataforma u ordenar por IMDb, Rotten Tomatoes o año.
 - **Importar una lista completa.** Pegan «Título (año)» una por línea, revisan las coincidencias dudosas y guardan todas de una vez.
 - **Galería.** El botón «Explorar en galería» (o el ícono de cada tarjeta) abre un carrusel casi a pantalla completa para recorrer sus películas: carátula, año, puntuaciones y plataformas de la que está al centro. Se navega con las flechas, con ← → del teclado o deslizando, y sigue el orden y los filtros de la lista.
-- **Marcar como vista** con un check verde animado y un sonido de campana (Web Audio, sin archivos). También tienen favoritas, calificación propia de 1 a 5 estrellas y notas.
+- **Marcar como vista** con un check verde animado y un sonido de campana (Web Audio, sin archivos). También tienen favoritas (el corazón se toca en el detalle o directo en la tarjeta, en la lista y en el inicio), calificación propia de 1 a 5 estrellas y notas.
+- **Resumen de la casa.** Una página (`/resumen`, con enlace desde la tarjeta de progreso del inicio) que cuenta cómo es su casa a partir de la biblioteca: una etiqueta según el género que más ven («Casa de risas», «Casa romántica»…), las cifras (vistas, horas ya vistas y por ver, y la plataforma principal con su logo, la que incluye más películas), los géneros con barras y quién sugiere más (cuatro a la vez, con «Mostrar más»). Abajo van dos bloques separados: **las favoritas**, solo las que tienen corazón y ordenadas por estrellas, y **la mejor calificada**, la de más estrellas tenga o no corazón. Se comparte como texto con un botón. Todo se calcula en código, sin IA. Como el corazón y las estrellas son de la casa, no de cada perfil, ninguna de las dos tarjetas distingue gustos por persona.
 - **Calendario de adviento.** Se arma en dos pasos. **1. Rango:** eligen «Desde hoy», el 1 de noviembre, el 1 de diciembre o una fecha propia (termina el 24 de diciembre) y ven cuántos días quedan frente a sus películas pendientes. **2. Organizar:** una vista ancha con la cuadrícula del mes y las carátulas sin día; el rango queda como una etiqueta con «Cambiar». Las películas se arrastran a cada día. Tiene modo sorpresa (los días futuros quedan cerrados como regalos), «Repartir automáticamente» (asigna todas las pendientes aunque cambien el rango de fechas), «Mezclar» y «Vaciar» con opción de deshacer. Los contadores de arriba distinguen días libres de películas sin día, y las películas vistas que no tienen día aparecen en el panel lateral para que ninguna quede escondida. Al abrir una puerta se ve la película en grande: póster, sinopsis completa, puntuaciones y todas las plataformas con su enlace.
 - **Inicio que saluda** a quien está viendo («Buenas noches, Ana») con su personaje y su frase, muestra una cuenta regresiva compacta hasta la medianoche de Navidad (hora de ustedes, con días, horas, minutos y segundos) y la película que toca hoy.
 - **Diseño navideño:** logo de árbol de Navidad, modo **automático** (oscuro de 6 p. m. a 6 a. m. según la hora del dispositivo) con menú Automático / Claro / Oscuro y transición de círculo, nieve, guirnalda de luces, tipografía de Apple (SF Pro Display y Text, con Inter de respaldo), botón flotante «Agregar», un árbol de Navidad animado en las pantallas de entrar y crear casa, pie de página con créditos y vista móvil con barra de pestañas.
@@ -228,7 +229,7 @@ pnpm seed --email tu@correo.com  # la casa de una cuenta
 **Pruebas y chequeos:**
 
 ```bash
-pnpm test        # 71 pruebas: calendario y reparto automático, duplicados, saludo, formato, JustWatch, claves, códigos de invitación, cuentas y códigos por correo, tema automático, límites, créditos de películas, avatares
+pnpm test        # 84 pruebas: calendario y reparto automático, duplicados, saludo, formato, JustWatch, claves, códigos de invitación, cuentas y códigos por correo, tema automático, límites, créditos de películas, avatares, resumen de la casa
 pnpm lint
 pnpm typecheck
 pnpm build
@@ -317,7 +318,7 @@ settings    { ownerId, displayName }   · solo lo lee la migración, para crear 
 src/
 ├── proxy.ts                 # sin casa → /login · con casa y sin perfil → /perfiles
 ├── app/
-│   ├── (app)/               # inicio, películas (lista, detalle, nueva, editar, importar), calendario, sugeridas
+│   ├── (app)/               # inicio, películas (lista, detalle, nueva, editar, importar), calendario, sugeridas, resumen
 │   ├── (auth)/login unirse recuperar   # entrar · crear casa (nombre y clave) · recuperar acceso, con el árbol animado
 │   ├── perfiles/            # «¿Quién está viendo?», editor de perfiles
 │   ├── admin/               # casas
@@ -325,7 +326,7 @@ src/
 │   ├── salir/               # limpia la sesión de una casa que ya no existe
 │   └── globals.css          # paleta navideña (tokens claro/oscuro) y animaciones
 ├── actions/                 # Server Actions: auth, home, profiles, admin, movies, calendar, suggestions
-├── components/              # dashboard, movies, advent (calendario), avatars, profiles, auth, shell, ui
+├── components/              # dashboard, movies, insights (resumen), advent (calendario), avatars, profiles, auth, shell, ui
 └── lib/
     ├── metadata/            # JustWatch (búsqueda y mapeo) y OMDb
     ├── dal.ts · db.ts       # acceso a datos con verificación de sesión · cliente de Mongo
@@ -334,6 +335,7 @@ src/
     ├── limits.ts · rate-limit.ts # topes y límites de intentos
     ├── avatar.ts · credits.ts    # personajes, colores y accesorios · texto «sugerida por…»
     ├── calendar.ts          # rangos, celdas del mes, reparto automático
+    ├── insights.ts          # resumen de la casa: géneros, horas, plataforma principal, favoritas (función pura)
     ├── library-match.ts     # ¿ya está en la biblioteca? (JustWatch id, IMDb id, título + año)
     ├── suggestions.ts       # catálogo navideño y caché de sugeridas
     └── *.test.ts            # pruebas con Vitest
@@ -370,6 +372,7 @@ docs/                        # logo y capturas del README
 - [x] Sugeridas y bloqueo de duplicados
 - [x] Casas de registro abierto (nombre y clave), perfiles y avatares navideños, con quién agregó y sugirió cada película
 - [x] Límites anti-abuso y limpieza de casas inactivas
+- [x] Resumen de la casa y corazón de favorita en las tarjetas
 - [ ] PIN opcional por perfil
 - [ ] Calificación y favoritas por perfil (hoy son de la casa)
 - [ ] Recordatorio diario de «Hoy toca» (Vercel Cron + correo o push)

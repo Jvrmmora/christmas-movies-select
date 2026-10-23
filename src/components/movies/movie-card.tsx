@@ -5,6 +5,7 @@ import { CalendarDays, Heart, Maximize2 } from "lucide-react";
 import { Poster, ProviderLogo } from "@/components/ui/poster";
 import { RatingBadges } from "@/components/ui/rating-badges";
 import { SuggestedBadge } from "@/components/profiles/attribution";
+import { FavoriteToggle } from "./favorite";
 import { WatchedToggle } from "./watched";
 import { subscriptionOffers } from "@/lib/platforms";
 import type { Movie } from "@/lib/types";
@@ -32,6 +33,8 @@ export function MovieCard({
   movie,
   watched,
   onToggle,
+  favorite,
+  onToggleFavorite,
   dateLabel,
   delay = 0,
   onExplore,
@@ -39,6 +42,9 @@ export function MovieCard({
   movie: Movie;
   watched: boolean;
   onToggle: () => void;
+  /** Optimistic favorite state; with onToggleFavorite the heart becomes a button. */
+  favorite?: boolean;
+  onToggleFavorite?: () => void;
   dateLabel?: string;
   delay?: number;
   /** Opens the gallery on this movie. */
@@ -61,10 +67,14 @@ export function MovieCard({
             {dateLabel}
           </span>
         )}
-        {movie.favorite && (
-          <span className="pointer-events-none absolute top-3 left-3 grid size-7 place-items-center rounded-full bg-black/45 text-white backdrop-blur-md" aria-label="Favorita">
-            <Heart className="size-3.5 fill-current" aria-hidden />
-          </span>
+        {onToggleFavorite ? (
+          <FavoriteToggle favorite={favorite ?? movie.favorite} title={movie.title} onToggle={onToggleFavorite} />
+        ) : (
+          movie.favorite && (
+            <span className="pointer-events-none absolute top-3 left-3 grid size-7 place-items-center rounded-full bg-black/45 text-white backdrop-blur-md" aria-label="Favorita">
+              <Heart className="size-3.5 fill-current" aria-hidden />
+            </span>
+          )
         )}
         <WatchedToggle watched={watched} title={movie.title} onToggle={onToggle} />
         {onExplore && (
