@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { freeDays, monthCells, normalizePreset, parseKey, planAutoFill, PRESETS, presetStart, rangeDays, seasonFor, toKey } from "./calendar";
+import { daysUntil, freeDays, monthCells, normalizePreset, parseKey, planAutoFill, PRESETS, presetStart, rangeDays, seasonFor, toKey } from "./calendar";
+
+describe("daysUntil", () => {
+  it("counts whole calendar days", () => {
+    expect(daysUntil("2026-10-23", "2026-12-01")).toBe(39);
+    expect(daysUntil("2026-12-01", "2026-12-01")).toBe(0);
+    expect(daysUntil("2026-12-02", "2026-12-01")).toBe(-1);
+  });
+
+  it("isn't thrown off by the clocks changing", () => {
+    // Daylight saving starts on 2026-03-08 in the US, so that day is 23 hours long there.
+    expect(daysUntil("2026-03-07", "2026-03-09")).toBe(2);
+    expect(daysUntil("2026-10-31", "2026-11-02")).toBe(2);
+  });
+});
 
 describe("calendar ranges", () => {
   const today = new Date(2026, 9, 11);

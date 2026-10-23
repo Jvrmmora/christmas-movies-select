@@ -16,14 +16,7 @@ import type { HomeInfo, Profile } from "@/lib/types";
 
 type View = { kind: "pick" } | { kind: "claim" } | { kind: "create"; own: boolean } | { kind: "edit"; id: string };
 
-export function ProfilePicker({
-  home,
-  profiles,
-  ownId,
-  next,
-  afterSetup,
-  editId,
-}: {
+interface PickerProps {
   home: HomeInfo;
   profiles: Profile[];
   /** This account's profile, or null while it hasn't claimed or created one. */
@@ -32,7 +25,20 @@ export function ProfilePicker({
   /** Where to go once the account has its own profile (the starter picks when the home is empty). */
   afterSetup: string;
   editId?: string;
-}) {
+}
+
+/**
+ * Next keeps the pages you leave alive, state included, and new props don't reset it. This screen is chosen once,
+ * when it mounts (pick, claim, create, edit), so without a key a later visit would revive the old one: the
+ * editor you finished with, or «¿Cuál eres tú?» for a profile you already have. Keyed on `bfcacheId`, every
+ * fresh visit starts from the current data, while back/forward still restores what you left.
+ */
+export function ProfilePicker(props: PickerProps) {
+  const { bfcacheId } = useRouter();
+  return <PickerView key={bfcacheId} {...props} />;
+}
+
+function PickerView({ home, profiles, ownId, next, afterSetup, editId }: PickerProps) {
   const router = useRouter();
   const { play } = usePrefs();
   const [pending, start] = useTransition();
