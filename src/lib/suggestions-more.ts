@@ -1,3 +1,4 @@
+import type { CountryCode } from "./countries";
 import { findInLibrary, type LibraryIndex } from "./library-match";
 import { searchPage } from "./metadata/justwatch";
 import type { Candidate } from "./types";
@@ -28,11 +29,14 @@ export async function loadMoreSuggestions({
   seen,
   library,
   cursor,
+  country,
   want = 12,
 }: {
   seen: string[];
   library: LibraryIndex;
   cursor: SuggestionCursor | null;
+  /** The home's country: where its offers come from. */
+  country: CountryCode;
   want?: number;
 }): Promise<{ items: Candidate[]; cursor: SuggestionCursor | null }> {
   const taken = new Set(seen);
@@ -42,7 +46,7 @@ export async function loadMoreSuggestions({
 
   // A few pages at most per click, so the answer stays fast.
   for (let pages = 0; items.length < want && term < TERMS.length && pages < 8; pages++) {
-    const page = await searchPage(TERMS[term], after);
+    const page = await searchPage(TERMS[term], after, country);
     for (const c of page.candidates) {
       if (taken.has(c.justwatchId) || !isRelevant(c) || !isGoodEnough(c) || findInLibrary(library, c)) continue;
       taken.add(c.justwatchId);

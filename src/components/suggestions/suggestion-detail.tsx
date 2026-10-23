@@ -99,7 +99,7 @@ function Body({ movie, busy, onAdd, onClose }: { movie: Candidate; busy: boolean
 
           <section aria-labelledby="sug-where" className="flex flex-col gap-3">
             <h3 id="sug-where" className="text-sm font-bold tracking-[0.06em] text-ink-2 uppercase">
-              Dónde verla en Colombia
+              Dónde verla
             </h3>
             {groups.length ? (
               <div className="flex flex-col gap-3">
@@ -123,7 +123,7 @@ function Body({ movie, busy, onAdd, onClose }: { movie: Candidate; busy: boolean
                 ))}
               </div>
             ) : (
-              <p className="rounded-2xl bg-surface-2 px-4 py-3.5 text-sm text-ink-2">Por ahora no está en ninguna plataforma en Colombia.</p>
+              <p className="rounded-2xl bg-surface-2 px-4 py-3.5 text-sm text-ink-2">Por ahora no está en ninguna plataforma de su país.</p>
             )}
           </section>
         </div>

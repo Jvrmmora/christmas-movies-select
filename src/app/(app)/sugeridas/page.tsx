@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { PosterGridSkeleton } from "@/components/skeletons";
 import { SuggestionsBrowser } from "@/components/suggestions/suggestions-browser";
-import { verifySession } from "@/lib/dal";
+import { getHome, verifySession } from "@/lib/dal";
 import { getLibraryIndex } from "@/lib/library";
 import { findInLibrary } from "@/lib/library-match";
 import { getSuggestionPool } from "@/lib/suggestions";
@@ -24,7 +24,8 @@ async function Suggestions() {
   const { ownerId } = await verifySession();
   let data: { suggestions: Candidate[]; total: number } | null = null;
   try {
-    const [pool, library] = await Promise.all([getSuggestionPool(), getLibraryIndex(ownerId)]);
+    const { country } = await getHome();
+    const [pool, library] = await Promise.all([getSuggestionPool(country), getLibraryIndex(ownerId)]);
     data = { suggestions: pool.filter((c) => !findInLibrary(library, c)), total: pool.length };
   } catch {
     data = null;

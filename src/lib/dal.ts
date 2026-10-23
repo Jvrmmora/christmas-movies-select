@@ -3,6 +3,7 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { ObjectId } from "mongodb";
 import { readAdminSession, readProfileSession, readSession } from "./session";
+import { toCountry } from "./countries";
 import { homeCap } from "./limits";
 import { collections, type CalendarDoc, type MovieDoc, type ProfileDoc } from "./db";
 import { normalizePreset, presetStart, seasonEnd, seasonFor } from "./calendar";
@@ -36,9 +37,24 @@ export function toProfile(doc: ProfileDoc): Profile {
 export const getHome = cache(async (): Promise<HomeInfo> => {
   const { homeId } = await verifySession();
   const { homes } = await collections();
-  const home = await homes.findOne({ _id: homeId }, { projection: { name: 1, inviteCode: 1 } });
+  const home = await homes.findOne({ _id: homeId }, { projection: { name: 1, inviteCode: 1, country: 1 } });
   if (!home) redirect("/salir");
-  return { id: home._id, name: home.name, inviteCode: home.inviteCode };
+  return { id: home._id, name: home.name, inviteCode: home.inviteCode, country: toCountry(home.country) };
+});
+
+/** How many other accounts share this home; decides what deleting this account takes with it. */
+export const getOtherAccountCount = cache(async (): Promise<number> => {
+  const { userId, homeId } = await verifySession();
+  const { users } = await collections();
+  return users.countDocuments({ homeId, _id: { $ne: userId } });
+});
+
+/** Whether this home has already been shown the starter classics. */
+export const getStarterOffered = cache(async (): Promise<boolean> => {
+  const { homeId } = await verifySession();
+  const { homes } = await collections();
+  const home = await homes.findOne({ _id: homeId }, { projection: { starterOfferedAt: 1 } });
+  return !!home?.starterOfferedAt;
 });
 
 const getProfileDocs = cache(async (): Promise<ProfileDoc[]> => {
@@ -182,6 +198,7 @@ export const getAdminOverview = cache(async (): Promise<AdminOverview | null> =>
       id: h._id,
       name: h.name,
       inviteCode: h.inviteCode,
+      country: toCountry(h.country),
       accounts: usersBy.get(h._id) ?? 0,
       profiles: profilesBy.get(h._id) ?? 0,
       movies: moviesBy.get(h._id) ?? 0,

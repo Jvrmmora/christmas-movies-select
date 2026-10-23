@@ -17,7 +17,7 @@ import type { CalendarState, Movie } from "@/lib/types";
 type Status = "all" | "pending" | "watched";
 type Sort = "cal" | "title" | "imdb" | "rt" | "year" | "added";
 
-const monthShort = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short" });
+const monthShort = new Intl.DateTimeFormat("es", { day: "numeric", month: "short" });
 const NONE = "__none__";
 
 export function MoviesBrowser({ movies, calendar }: { movies: Movie[]; calendar: CalendarState }) {

@@ -25,9 +25,9 @@ import { primaryOffer } from "@/lib/platforms";
 import { parseKey } from "@/lib/calendar";
 import type { Movie, OfferType } from "@/lib/types";
 
-const longDate = new Intl.DateTimeFormat("es-CO", { weekday: "long", day: "numeric", month: "long" });
-const shortDate = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short" });
-const relative = new Intl.RelativeTimeFormat("es-CO", { numeric: "auto" });
+const longDate = new Intl.DateTimeFormat("es", { weekday: "long", day: "numeric", month: "long" });
+const shortDate = new Intl.DateTimeFormat("es", { day: "numeric", month: "short" });
+const relative = new Intl.RelativeTimeFormat("es", { numeric: "auto" });
 const GROUPS: OfferType[] = ["flatrate", "free", "ads", "rent", "buy"];
 
 function syncedLabel(iso: string | null) {
@@ -207,7 +207,7 @@ export function MovieDetail({ movie, calendarDate }: { movie: Movie; calendarDat
           <section aria-labelledby="donde" className="flex flex-col gap-3.5">
             <div className="flex flex-wrap items-baseline justify-between gap-3">
               <h2 id="donde" className="text-xl font-bold">
-                Dónde ver en Colombia
+                Dónde ver
               </h2>
               <button
                 type="button"
@@ -256,7 +256,7 @@ export function MovieDetail({ movie, calendarDate }: { movie: Movie; calendarDat
               </div>
             ) : (
               <div className="rounded-[20px] bg-surface-2 px-5 py-6 text-[15px] text-ink-2">
-                Por ahora no está en ninguna plataforma en Colombia. Prueben «Actualizar datos» más adelante o agreguen un enlace desde «Editar».
+                Por ahora no está en ninguna plataforma de su país. Prueben «Actualizar datos» más adelante o agreguen un enlace desde «Editar».
               </div>
             )}
             <p className="text-xs text-ink-2">Disponibilidad según JustWatch · actualizada {syncedLabel(movie.lastSyncedAt)}</p>
@@ -269,7 +269,7 @@ export function MovieDetail({ movie, calendarDate }: { movie: Movie; calendarDat
                   <span className="flex h-[52px] w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-berry-soft leading-none text-berry-ink">
                     <span className="text-xl font-bold">{parseKey(calendarDate).getDate()}</span>
                     <span className="mt-[3px] text-[10px] font-bold tracking-[0.08em] uppercase">
-                      {new Intl.DateTimeFormat("es-CO", { month: "short" }).format(parseKey(calendarDate)).replace(".", "")}
+                      {new Intl.DateTimeFormat("es", { month: "short" }).format(parseKey(calendarDate)).replace(".", "")}
                     </span>
                   </span>
                   <div className="min-w-0 flex-1">

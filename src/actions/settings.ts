@@ -1,12 +1,15 @@
 "use server";
 
 import { refresh } from "next/cache";
+import { redirect } from "next/navigation";
 import { collections } from "@/lib/db";
+import { deleteHomeCascade } from "@/lib/homes";
 import { RATE_RULES } from "@/lib/limits";
 import { hashSecret, verifySecret } from "@/lib/password";
 import { tooManyAttempts } from "@/lib/rate-limit";
 import { limiter } from "@/lib/rate-limit-store";
-import { emailSchema, firstIssue, homeNameSchema, passwordSchema } from "@/lib/validation";
+import { deleteSession } from "@/lib/session";
+import { countrySchema, emailSchema, firstIssue, homeNameSchema, passwordSchema } from "@/lib/validation";
 import { errorMessage, requireOwner, requireUser } from "./guard";
 
 export interface SettingsState {
@@ -25,6 +28,21 @@ export async function updateHomeAction(_prev: SettingsState, formData: FormData)
     if (!name.success) return { error: firstIssue(name.error) };
     const { homes } = await collections();
     await homes.updateOne({ _id: homeId }, { $set: { name: name.data } });
+    refresh();
+    return { saved: Date.now() };
+  } catch (err) {
+    return { error: errorMessage(err) };
+  }
+}
+
+/** Where the home looks up where to watch. Movies already saved keep what they had until each one is refreshed. */
+export async function updateCountryAction(_prev: SettingsState, formData: FormData): Promise<SettingsState> {
+  try {
+    const homeId = await requireOwner();
+    const country = countrySchema.safeParse(formData.get("country"));
+    if (!country.success) return { error: firstIssue(country.error) };
+    const { homes } = await collections();
+    await homes.updateOne({ _id: homeId }, { $set: { country: country.data } });
     refresh();
     return { saved: Date.now() };
   } catch (err) {
@@ -69,6 +87,34 @@ export async function updateEmailAction(_prev: SettingsState, formData: FormData
   } catch (err) {
     return { error: errorMessage(err) };
   }
+}
+
+/**
+ * Deletes the signed-in account for good, after asking for its password.
+ * - With other accounts in the home: only this account and its own profile go. The home, its movies and the
+ *   profiles of the others stay; what this person added or suggested shows as «alguien que ya no está».
+ * - As the only account: the whole home goes with it (nobody would be left to open it).
+ * Children go first and the account last, so a failure midway never leaves an account without its data.
+ * (Two accounts deleting at the very same moment could leave an empty home; the yearly cleanup removes it.)
+ */
+export async function deleteAccountAction(_prev: SettingsState, formData: FormData): Promise<SettingsState> {
+  try {
+    const { userId, homeId } = await requireUser();
+    const wrong = await checkCurrentPassword(userId, formData.get("deletePassword"));
+    if (wrong) return { error: wrong };
+
+    const { users, profiles } = await collections();
+    if (homeId) {
+      const others = await users.countDocuments({ homeId, _id: { $ne: userId } }, { limit: 1 });
+      if (others) await profiles.deleteMany({ homeId, userId });
+      else await deleteHomeCascade(homeId);
+    }
+    await users.deleteOne({ _id: userId });
+    await deleteSession();
+  } catch (err) {
+    return { error: errorMessage(err) };
+  }
+  redirect("/login");
 }
 
 export async function updatePasswordAction(_prev: SettingsState, formData: FormData): Promise<SettingsState> {

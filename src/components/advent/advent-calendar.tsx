@@ -28,14 +28,15 @@ import { Poster, ProviderLogo } from "@/components/ui/poster";
 import { ImdbLogo, RtLogo } from "@/components/ui/rating-badges";
 import { CloseButton, Dialog } from "@/components/ui/dialog";
 import { freeDays, MONTH_NAMES, monthCells, parseKey, planAutoFill, rangeDays, toKey } from "@/lib/calendar";
+import { planSmartFill } from "@/lib/smart-calendar";
 import { formatRuntime, formatScore, OFFER_GROUP_LABEL } from "@/lib/format";
 import { primaryOffer } from "@/lib/platforms";
 import type { CalendarState, Movie } from "@/lib/types";
 import { CalendarToolbar } from "./calendar-toolbar";
 
-const longFmt = new Intl.DateTimeFormat("es-CO", { weekday: "long", day: "numeric", month: "long" });
-const shortFmt = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "long" });
-const chipFmt = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short" });
+const longFmt = new Intl.DateTimeFormat("es", { weekday: "long", day: "numeric", month: "long" });
+const shortFmt = new Intl.DateTimeFormat("es", { day: "numeric", month: "long" });
+const chipFmt = new Intl.DateTimeFormat("es", { day: "numeric", month: "short" });
 const WEEKDAYS = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
 
 /** The day under the finger wins; rectangles only as a fallback (keyboard, edges). */
@@ -144,6 +145,29 @@ export function AdventCalendar({ movies, calendar }: { movies: Movie[]; calendar
     else toast.success(`${placed} ${placed === 1 ? "película repartida" : "películas repartidas"}`);
   };
 
+  const smartFill = () => {
+    if (!pool.length) {
+      toast("Todas las películas pendientes ya tienen día.");
+      return;
+    }
+    const { next, placed, left } = planSmartFill(days, cal.assignments, pool, fromKey);
+    if (!placed) {
+      toast("No quedan días libres en el rango elegido.");
+      return;
+    }
+    const previous = cal.assignments;
+    persist({ assignments: next });
+    play("jingle");
+    const eve = days.at(-1);
+    const eveFree = !!eve && eve.endsWith("-12-24") && !next[eve];
+    const note = [
+      `${placed} ${placed === 1 ? "película repartida" : "películas repartidas"} con inteligencia`,
+      left ? `${left} no caben en este rango: elijan una fecha de inicio más temprana` : null,
+      eveFree ? "Nochebuena quedó libre para elegirla ustedes" : null,
+    ];
+    toast(note.filter(Boolean).join(". ") + ".", { action: { label: "Deshacer", onClick: () => persist({ assignments: previous }) } });
+  };
+
   const shuffle = () => {
     const keys = days.filter((k) => k >= fromKey && cal.assignments[k] && !isWatched(cal.assignments[k]));
     if (keys.length < 2) return;
@@ -228,6 +252,7 @@ export function AdventCalendar({ movies, calendar }: { movies: Movie[]; calendar
             play("jingle");
           }}
           onAutoFill={autoFill}
+          onSmartFill={smartFill}
           onShuffle={shuffle}
           onClear={clearUpcoming}
         />
@@ -700,7 +725,7 @@ function DoorDialog({
 
           <section aria-labelledby="door-where" className="flex flex-col gap-3">
             <h3 id="door-where" className="text-sm font-bold tracking-[0.06em] text-ink-2 uppercase">
-              Dónde verla en Colombia
+              Dónde verla
             </h3>
             {groups.length ? (
               <div className="flex flex-col gap-3">
@@ -724,7 +749,7 @@ function DoorDialog({
                 ))}
               </div>
             ) : (
-              <p className="rounded-2xl bg-surface-2 px-4 py-3.5 text-sm text-ink-2">Por ahora no está en ninguna plataforma en Colombia.</p>
+              <p className="rounded-2xl bg-surface-2 px-4 py-3.5 text-sm text-ink-2">Por ahora no está en ninguna plataforma de su país.</p>
             )}
           </section>
         </div>

@@ -61,6 +61,13 @@ export function rangeDays(start: string, end: string): string[] {
   return days;
 }
 
+/** Whole days from `fromKey` to `toKey` (negative when `toKey` is earlier). Calendar days, so daylight saving can't skew it. */
+export function daysUntil(fromKey: string, toKey: string): number {
+  const a = parseKey(fromKey);
+  const b = parseKey(toKey);
+  return Math.round((Date.UTC(b.getFullYear(), b.getMonth(), b.getDate()) - Date.UTC(a.getFullYear(), a.getMonth(), a.getDate())) / 864e5);
+}
+
 export const MONTH_NAMES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",

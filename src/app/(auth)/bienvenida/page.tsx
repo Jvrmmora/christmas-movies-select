@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
+import { countryOptions } from "@/lib/countries";
 import { getUser } from "@/lib/dal";
 import { findHomeByInvite } from "@/lib/homes";
 import { normalizeInviteCode } from "@/lib/invite-code";
@@ -22,5 +23,5 @@ async function Welcome({ searchParams }: { searchParams: PageProps<"/bienvenida"
   if (user.homeId) redirect("/");
   const code = normalizeInviteCode(typeof params.codigo === "string" ? params.codigo : "");
   const invite = await findHomeByInvite(code);
-  return <WelcomeForm email={user.email} code={code ?? undefined} invite={invite ?? undefined} />;
+  return <WelcomeForm email={user.email} code={code ?? undefined} invite={invite ?? undefined} countries={countryOptions()} />;
 }

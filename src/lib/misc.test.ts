@@ -35,7 +35,7 @@ describe("greeting", () => {
 });
 
 describe("format", () => {
-  it("formats runtimes and scores the Colombian way", () => {
+  it("formats runtimes and scores with a decimal comma", () => {
     expect(formatRuntime(103)).toBe("1 h 43 min");
     expect(formatRuntime(120)).toBe("2 h");
     expect(formatRuntime(45)).toBe("45 min");

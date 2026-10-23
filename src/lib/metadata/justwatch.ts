@@ -1,14 +1,18 @@
+import { isCountryCode, justwatchLanguage, type CountryCode } from "../countries";
 import type { Candidate, OfferType, StreamingOffer } from "../types";
 
-// Unofficial JustWatch GraphQL API: no key needed. Content and offers are always
-// requested for Colombia (es-CO gives Latin American titles: "Mi pobre angelito").
+// Unofficial JustWatch GraphQL API: no key needed. Content and offers are requested for the home's own
+// country, with that country's Spanish for titles (es-MX gives «Mi pobre angelito», es-ES «Solo en casa»).
 const ENDPOINT = "https://apis.justwatch.com/graphql";
 const IMG = "https://images.justwatch.com";
 
-const FIELDS = `
+/** The fields every query asks for. `country` goes straight into the query text, so it must be a known code. */
+function fields(country: CountryCode): string {
+  if (!isCountryCode(country)) throw new MetadataError("País no válido.");
+  return `
   id
   objectType
-  content(country: CO, language: "es-CO") {
+  content(country: ${country}, language: "${justwatchLanguage(country)}") {
     title
     originalTitle
     originalReleaseYear
@@ -21,12 +25,13 @@ const FIELDS = `
     externalIds { imdbId tmdbId }
     clips { externalId provider }
   }
-  offers(country: CO, platform: WEB) {
+  offers(country: ${country}, platform: WEB) {
     monetizationType
     standardWebURL
     package { clearName technicalName icon }
   }
 `;
+}
 
 interface JwNode {
   id: string;
@@ -206,35 +211,36 @@ export function toCandidate(node: JwNode, query: string, year?: number): Candida
   };
 }
 
-function searchQuery(country: "CO" | "US", year?: number): string {
+/** `catalog` is the country whose titles are searched; content and offers always come from `country`. */
+function searchQuery(catalog: CountryCode, country: CountryCode, year?: number): string {
   const y = year && Number.isInteger(year) ? `, releaseYear: { min: ${year - 1}, max: ${year + 1} }` : "";
   return `query Search($q: String!) {
-    popularTitles(country: ${country}, first: 6, filter: { searchQuery: $q, objectTypes: [MOVIE]${y} }) {
-      edges { node { ${FIELDS} } }
+    popularTitles(country: ${catalog}, first: 6, filter: { searchQuery: $q, objectTypes: [MOVIE]${y} }) {
+      edges { node { ${fields(country)} } }
     }
   }`;
 }
 
-async function searchIn(country: "CO" | "US", q: string, year?: number): Promise<JwNode[]> {
-  const data = await gql<{ popularTitles: { edges: { node: JwNode }[] } }>(searchQuery(country, year), { q });
+async function searchIn(catalog: CountryCode, country: CountryCode, q: string, year?: number): Promise<JwNode[]> {
+  const data = await gql<{ popularTitles: { edges: { node: JwNode }[] } }>(searchQuery(catalog, country, year), { q });
   return data.popularTitles.edges.map((e) => e.node).filter((n) => n.objectType === "MOVIE" && n.content);
 }
 
 /**
- * Finds the best matches for a title + year. Colombia's catalog first; titles it
+ * Finds the best matches for a title + year. The home's country catalog first; titles it
  * doesn't index (e.g. "That Christmas") come from the US catalog, still with
- * Colombian content and offers.
+ * the home's own content and offers.
  */
-export async function searchJustWatch(title: string, year?: number): Promise<Candidate[]> {
+export async function searchJustWatch(title: string, year: number | undefined, country: CountryCode): Promise<Candidate[]> {
   const q = title.trim();
   if (!q) return [];
   const byId = new Map<string, Candidate>();
   const add = (nodes: JwNode[]) => nodes.forEach((n) => byId.has(n.id) || byId.set(n.id, toCandidate(n, q, year)));
   const best = () => Math.max(0, ...[...byId.values()].map((c) => c.score));
 
-  add(await searchIn("CO", q, year));
-  if (best() < 0.9) add(await searchIn("US", q, year));
-  if (best() < 0.9 && year) add(await searchIn("CO", q));
+  add(await searchIn(country, country, q, year));
+  if (best() < 0.9) add(await searchIn("US", country, q, year));
+  if (best() < 0.9 && year) add(await searchIn(country, country, q));
 
   const sorted = [...byId.values()].sort((a, b) => b.score - a.score);
   // With a clear winner, drop the loosely related titles JustWatch adds to its results.
@@ -242,18 +248,19 @@ export async function searchJustWatch(title: string, year?: number): Promise<Can
   return sorted.filter((c) => c.score >= floor).slice(0, 6);
 }
 
-export async function getJustWatchTitle(id: string): Promise<Candidate | null> {
-  const data = await gql<{ node: JwNode | null }>(`query Title($id: ID!) { node(id: $id) { ... on Movie { ${FIELDS} } } }`, { id });
+export async function getJustWatchTitle(id: string, country: CountryCode): Promise<Candidate | null> {
+  const data = await gql<{ node: JwNode | null }>(`query Title($id: ID!) { node(id: $id) { ... on Movie { ${fields(country)} } } }`, { id });
   if (!data.node?.content) return null;
   return toCandidate(data.node, data.node.content.title, data.node.content.originalReleaseYear ?? undefined);
 }
 
 /**
  * Looks up many known titles in one GraphQL request (aliases). Used for the curated
- * suggestions: the US catalog is broader, content and offers are still Colombian.
+ * suggestions: the US catalog is broader, content and offers are the home's country.
  * Only confident matches are returned; the rest come back as null.
  */
-export async function searchBatch(items: { title: string; year: number }[]): Promise<(Candidate | null)[]> {
+export async function searchBatch(items: { title: string; year: number }[], country: CountryCode): Promise<(Candidate | null)[]> {
+  const nodeFields = fields(country);
   const out: (Candidate | null)[] = items.map(() => null);
   const SIZE = 12;
   const jobs: Promise<void>[] = [];
@@ -262,7 +269,7 @@ export async function searchBatch(items: { title: string; year: number }[]): Pro
     const body = slice
       .map(
         (it, i) =>
-          `q${i}: popularTitles(country: US, first: 3, filter: { searchQuery: ${JSON.stringify(it.title)}, releaseYear: { min: ${it.year - 1}, max: ${it.year + 1} }, objectTypes: [MOVIE] }) { edges { node { ${FIELDS} } } }`,
+          `q${i}: popularTitles(country: US, first: 3, filter: { searchQuery: ${JSON.stringify(it.title)}, releaseYear: { min: ${it.year - 1}, max: ${it.year + 1} }, objectTypes: [MOVIE] }) { edges { node { ${nodeFields} } } }`,
       )
       .join("\n");
     jobs.push(
@@ -291,11 +298,11 @@ export interface SearchPage {
   hasNextPage: boolean;
 }
 
-/** One page of movies for a search term, most popular first (US catalog, Colombian offers). */
-export async function searchPage(term: string, after: string | null, first = 40): Promise<SearchPage> {
+/** One page of movies for a search term, most popular first (US catalog, the home's country offers). */
+export async function searchPage(term: string, after: string | null, country: CountryCode, first = 40): Promise<SearchPage> {
   const afterArg = after ? `, after: ${JSON.stringify(after)}` : "";
   const data = await gql<{ popularTitles: { pageInfo: { endCursor: string | null; hasNextPage: boolean }; edges: { node: JwNode }[] } }>(
-    `query Page { popularTitles(country: US, first: ${first}${afterArg}, filter: { searchQuery: ${JSON.stringify(term)}, objectTypes: [MOVIE] }) { pageInfo { endCursor hasNextPage } edges { node { ${FIELDS} } } } }`,
+    `query Page { popularTitles(country: US, first: ${first}${afterArg}, filter: { searchQuery: ${JSON.stringify(term)}, objectTypes: [MOVIE] }) { pageInfo { endCursor hasNextPage } edges { node { ${fields(country)} } } } }`,
     {},
   );
   const page = data.popularTitles;

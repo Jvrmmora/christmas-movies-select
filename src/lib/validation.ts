@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { DATE_KEY } from "./calendar";
+import { COUNTRY_CODES } from "./countries";
 import { ACCESSORIES, BACKGROUND_IDS, CHARACTERS } from "./avatar";
 
 const isHttpUrl = (v: string) => {
@@ -92,6 +93,9 @@ export const passwordSchema = z
   .max(100, "La clave es demasiado larga");
 
 export const homeNameSchema = z.string().trim().min(1, "Ponle un nombre a la casa").max(40, "Máximo 40 letras");
+
+/** Where the home looks up where to watch. Anything outside the list is refused: it ends up inside a JustWatch query. */
+export const countrySchema = z.enum(COUNTRY_CODES, { error: "Elige el país de tu casa." });
 
 /** Lowercased so "Ana@Gmail.com" and "ana@gmail.com" are the same address (and the same unique key). */
 export const emailSchema = z.string().trim().toLowerCase().max(254, "Ese correo es demasiado largo").pipe(z.email("Escribe un correo válido"));

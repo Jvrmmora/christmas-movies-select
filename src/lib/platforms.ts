@@ -2,7 +2,7 @@ import type { OfferType, StreamingOffer } from "./types";
 
 const icon = (id: number, name: string) => `https://images.justwatch.com/icon/${id}/s100/${name}.webp`;
 
-/** Services available in Colombia, with official logos (via JustWatch) and a search URL for manual links. */
+/** Streaming services we know (Latin American and global), with official logos (via JustWatch) and a search URL for manual links. */
 export const KNOWN_PLATFORMS: { provider: string; name: string; logoUrl: string; search: (q: string) => string }[] = [
   { provider: "netflix", name: "Netflix", logoUrl: icon(207360008, "netflix"), search: (q) => `https://www.netflix.com/search?q=${q}` },
   { provider: "disneyplus", name: "Disney+", logoUrl: icon(313118777, "disneyplus"), search: (q) => `https://www.disneyplus.com/search?q=${q}` },

@@ -17,12 +17,13 @@ import { Poster, ProviderLogo } from "@/components/ui/poster";
 import { RatingBadges } from "@/components/ui/rating-badges";
 import { countdownTo, GREETING, periodFor } from "@/lib/greeting";
 import { capitalize, formatRuntime } from "@/lib/format";
-import { parseKey, toKey } from "@/lib/calendar";
+import { daysUntil, parseKey, toKey } from "@/lib/calendar";
 import { primaryOffer } from "@/lib/platforms";
 import type { CalendarState, Movie } from "@/lib/types";
 
-const dayFmt = new Intl.DateTimeFormat("es-CO", { weekday: "long", day: "numeric", month: "long" });
-const monthShort = new Intl.DateTimeFormat("es-CO", { month: "short" });
+const dayFmt = new Intl.DateTimeFormat("es", { weekday: "long", day: "numeric", month: "long" });
+const monthShort = new Intl.DateTimeFormat("es", { month: "short" });
+const startFmt = new Intl.DateTimeFormat("es", { day: "numeric", month: "long" });
 
 export function DashboardView({ movies, calendar }: { movies: Movie[]; calendar: CalendarState }) {
   const now = useNow();
@@ -62,12 +63,13 @@ export function DashboardView({ movies, calendar }: { movies: Movie[]; calendar:
       {todayMovie ? (
         <TodayCard movie={todayMovie} watched={isWatched(todayMovie.id)} onToggle={() => toggle(todayMovie.id)} dateLabel={now ? dayFmt.format(now) : ""} />
       ) : (
-        <CalendarNudge configured={calendar.configured} hasAssignments={assigned.length > 0} />
+        <CalendarNudge configured={calendar.configured} hasAssignments={assigned.length > 0} startDate={calendar.startDate} todayKey={todayKey} />
       )}
 
       {upcoming.length > 0 && (
         <section aria-labelledby="prox" className="flex flex-col gap-5">
-          <SectionHead id="prox" title="Próximos días del calendario" href="/calendario" link="Ver calendario" />
+          {/* Without a movie today the card above already has the way in; a second link to the same place was a repeat. */}
+          <SectionHead id="prox" title="Próximos días del calendario" href="/calendario" link={todayMovie ? "Ver calendario" : undefined} />
           <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-5 sm:grid-cols-[repeat(auto-fill,minmax(168px,1fr))]">
             {upcoming.map(([key, id]) => {
               const m = byId.get(id)!;
@@ -115,15 +117,17 @@ export function DashboardView({ movies, calendar }: { movies: Movie[]; calendar:
   );
 }
 
-function SectionHead({ id, title, href, link }: { id: string; title: string; href: string; link: string }) {
+function SectionHead({ id, title, href, link }: { id: string; title: string; href: string; link?: string }) {
   return (
     <div className="flex items-baseline justify-between gap-4">
       <h2 id={id} className="text-[22px] font-bold tracking-[-0.02em] sm:text-[26px]">
         {title}
       </h2>
-      <Link href={href} className="text-[15px] font-semibold text-berry-ink hover:text-berry">
-        {link}
-      </Link>
+      {link && (
+        <Link href={href} className="text-[15px] font-semibold text-berry-ink hover:text-berry">
+          {link}
+        </Link>
+      )}
     </div>
   );
 }
@@ -270,21 +274,28 @@ function TodayCard({ movie, watched, onToggle, dateLabel }: { movie: Movie; watc
   );
 }
 
-function CalendarNudge({ configured, hasAssignments }: { configured: boolean; hasAssignments: boolean }) {
+/** What the inicio says when no movie is set for today: set up, not started yet, or a day left empty. */
+function CalendarNudge({ configured, hasAssignments, startDate, todayKey }: { configured: boolean; hasAssignments: boolean; startDate: string; todayKey: string | null }) {
   const setUp = !configured && !hasAssignments;
+  // Today falls before the calendar's first day: nothing is missing, it just hasn't started.
+  const wait = !setUp && todayKey && todayKey < startDate ? daysUntil(todayKey, startDate) : null;
+  const title = setUp ? "Armen su calendario de adviento" : wait !== null ? `Su calendario empieza el ${startFmt.format(parseKey(startDate))}` : "Hoy no hay película en el calendario";
+  const text = setUp
+    ? "Elijan desde cuándo empezar: una película por día hasta Nochebuena."
+    : wait !== null
+      ? `${wait === 1 ? "Falta 1 día" : `Faltan ${wait} días`}. Mientras tanto pueden acomodar las películas de cada día.`
+      : "Elijan una de la lista o pongan una para hoy.";
   return (
     <section className="nv-fade flex flex-wrap items-center gap-4 rounded-[20px] bg-surface p-5 shadow-card sm:px-6" style={{ animationDelay: "0.14s" }}>
       <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-gold-soft text-gold-ink">
         <CalendarDays className="size-5" strokeWidth={1.8} aria-hidden />
       </span>
       <div className="min-w-0 flex-[1_1_260px]">
-        <h2 className="text-base font-semibold">{setUp ? "Armen su calendario de adviento" : "Hoy no hay película en el calendario"}</h2>
-        <p className="mt-0.5 text-sm text-ink-2">
-          {setUp ? "Elijan desde cuándo empezar: una película por día hasta Nochebuena." : "Elijan una de la lista o pongan una para hoy."}
-        </p>
+        <h2 className="text-base font-semibold">{title}</h2>
+        <p className="mt-0.5 text-sm text-ink-2">{text}</p>
       </div>
       <Link href={setUp ? "/calendario/rango" : "/calendario"} className="nv-press inline-flex h-10 items-center rounded-full bg-pine px-4 text-sm font-semibold text-white">
-        {setUp ? "Empezar" : "Ir al calendario"}
+        {setUp ? "Empezar" : wait !== null ? "Ver calendario" : "Ir al calendario"}
       </Link>
     </section>
   );

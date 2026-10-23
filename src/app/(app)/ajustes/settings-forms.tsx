@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useActionState, useEffect, useState, useTransition } from "react";
-import { Copy, House, LockKeyhole, Mail, RefreshCw } from "lucide-react";
+import { Copy, House, LockKeyhole, Mail, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { regenerateInviteAction } from "@/actions/home";
-import { updateEmailAction, updateHomeAction, updatePasswordAction, type SettingsState } from "@/actions/settings";
-import { Field, FormError, SubmitButton } from "@/components/auth/fields";
+import { deleteAccountAction, updateCountryAction, updateEmailAction, updateHomeAction, updatePasswordAction, type SettingsState } from "@/actions/settings";
+import { CountryField, Field, FormError, SubmitButton } from "@/components/auth/fields";
 
 function Card({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
   return (
@@ -41,6 +41,28 @@ export function HomeForm({ name }: { name: string }) {
         <Field id="name" label="Nombre de la casa" icon={House} type="text" required maxLength={40} autoComplete="off" defaultValue={name} />
         <FormError>{state.error}</FormError>
         <SubmitButton pending={pending} idle="Guardar cambios" busy="Guardando…" />
+      </form>
+    </Card>
+  );
+}
+
+/** Where the home looks up where to watch. Changing it doesn't touch what is already saved. */
+export function CountryForm({ country, countries }: { country: string; countries: { code: string; name: string }[] }) {
+  const [state, action, pending] = useActionState<SettingsState, FormData>(updateCountryAction, {});
+
+  useEffect(() => {
+    if (state.saved) toast.success("País actualizado");
+  }, [state.saved]);
+
+  return (
+    <Card title="País" description="De ahí salen las plataformas donde ver cada película y los títulos como se conocen allá.">
+      <form key={state.saved ?? "form"} action={action} className="mt-5 flex flex-col gap-4">
+        <CountryField label="País de la casa" countries={countries} defaultValue={country} />
+        <p className="text-[13px] text-ink-2">
+          Las películas que ya tienen guardadas conservan las plataformas del país anterior hasta que usen «Actualizar datos» en cada una.
+        </p>
+        <FormError>{state.error}</FormError>
+        <SubmitButton pending={pending} idle="Guardar país" busy="Guardando…" />
       </form>
     </Card>
   );
@@ -148,6 +170,38 @@ export function EmailForm({ email }: { email: string }) {
         </form>
       )}
     </Card>
+  );
+}
+
+/** The danger zone: deleting the account needs the password, and says what goes with it before asking. */
+export function DeleteAccountCard({ homeName, others }: { homeName: string; others: number }) {
+  const [open, setOpen] = useState(false);
+  const [state, action, pending] = useActionState<SettingsState, FormData>(deleteAccountAction, {});
+  const consequence = others
+    ? `Se borran tu cuenta y tu perfil. «${homeName}» sigue con ${others === 1 ? "la otra cuenta" : `las otras ${others} cuentas`} y todas sus películas; lo que agregaste o sugeriste se queda y aparece como «alguien que ya no está».`
+    : `Eres la única cuenta de «${homeName}», así que también se borran la casa, sus películas, el calendario y sus perfiles.`;
+
+  return (
+    <section className="rounded-3xl border border-line bg-surface p-5 shadow-card sm:p-7">
+      <h2 className="font-display text-lg font-bold text-berry-ink">Eliminar mi cuenta</h2>
+      <p className="mt-1 text-sm text-ink-2">Esto no se puede deshacer.</p>
+      {!open ? (
+        <button type="button" onClick={() => setOpen(true)} className="nv-press mt-5 flex h-11 items-center gap-2 rounded-full border border-line px-5 text-sm font-semibold text-berry-ink hover:bg-surface-2">
+          <Trash2 className="size-4" strokeWidth={1.9} aria-hidden />
+          Eliminar mi cuenta
+        </button>
+      ) : (
+        <form action={action} className="mt-5 flex flex-col gap-4">
+          <p className="rounded-[14px] bg-berry-soft p-3.5 text-sm">{consequence}</p>
+          <Field id="deletePassword" label="Tu clave" icon={LockKeyhole} type="password" required autoComplete="current-password" hint="La pedimos para que nadie más pueda borrar tu cuenta." />
+          <FormError>{state.error}</FormError>
+          <SubmitButton pending={pending} idle="Sí, eliminar mi cuenta" busy="Eliminando…" />
+          <button type="button" onClick={() => setOpen(false)} className="text-center text-sm font-medium text-ink-2 underline-offset-4 hover:underline">
+            Cancelar
+          </button>
+        </form>
+      )}
+    </section>
   );
 }
 

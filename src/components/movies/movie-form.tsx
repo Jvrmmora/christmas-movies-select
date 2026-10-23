@@ -124,7 +124,7 @@ function toInput(f: FormState): MovieInput | string {
 
 const field = "h-12 w-full rounded-xl border border-line bg-field px-3.5 text-base text-ink";
 const labelCls = "flex flex-col gap-1.5 text-[13px] font-semibold text-ink-2";
-const dayFmt = new Intl.DateTimeFormat("es-CO", { weekday: "short", day: "numeric", month: "short" });
+const dayFmt = new Intl.DateTimeFormat("es", { weekday: "short", day: "numeric", month: "short" });
 
 export function MovieForm({ movie, calendar, calendarDate = null }: { movie?: Movie; calendar: CalendarState; calendarDate?: string | null }) {
   const editing = !!movie;
@@ -340,7 +340,7 @@ export function MovieForm({ movie, calendar, calendarDate = null }: { movie?: Mo
             {!searching && candidates && candidates.length > 0 && qName.trim().length >= 2 && (
               <div className="flex flex-col gap-2.5">
                 <div className="text-[13px] text-ink-2">
-                  {candidates.length} {candidates.length === 1 ? "coincidencia" : "coincidencias"} en JustWatch Colombia · elijan la correcta
+                  {candidates.length} {candidates.length === 1 ? "coincidencia" : "coincidencias"} en JustWatch · elijan la correcta
                 </div>
                 <div role="radiogroup" aria-label="Coincidencias" className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
                   {candidates.map((c) => {
@@ -540,7 +540,7 @@ export function MovieForm({ movie, calendar, calendarDate = null }: { movie?: Mo
       <section aria-labelledby="plataformas" className="flex flex-col gap-4 rounded-3xl bg-surface p-5 shadow-card sm:p-7">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 id="plataformas" className="text-[19px] font-bold">
-            Dónde verla en Colombia
+            Dónde verla
           </h2>
           <SwitchButton on={f.noPlatform} onChange={(v) => set("noPlatform", v)} className="h-10 rounded-full pr-1.5 pl-3.5 text-sm">
             Sin plataforma

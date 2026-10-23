@@ -1,4 +1,5 @@
 import type { Avatar } from "./avatar";
+import type { CountryCode } from "./countries";
 
 export type OfferType = "flatrate" | "free" | "ads" | "rent" | "buy";
 
@@ -95,6 +96,7 @@ export interface HomeInfo {
   id: string;
   name: string;
   inviteCode: string;
+  country: CountryCode;
 }
 
 export interface AdminHome extends HomeInfo {
