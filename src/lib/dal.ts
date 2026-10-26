@@ -18,10 +18,10 @@ export const getUser = cache(async () => {
   const session = await readSession();
   if (!session) redirect("/login");
   const { users } = await collections();
-  const user = await users.findOne({ _id: session.userId }, { projection: { email: 1, homeId: 1 } });
+  const user = await users.findOne({ _id: session.userId }, { projection: { email: 1, homeId: 1, reminders: 1 } });
   // A cookie for an account that was deleted: /salir clears it, otherwise /login would bounce straight back.
   if (!user) redirect("/salir");
-  return { userId: user._id, email: user.email, homeId: user.homeId ?? null };
+  return { userId: user._id, email: user.email, homeId: user.homeId ?? null, reminders: !!user.reminders };
 });
 
 export const verifySession = cache(async () => {

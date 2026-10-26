@@ -73,3 +73,14 @@ export async function verifyAdminToken(token: string | undefined): Promise<boole
   const p = await verify(token);
   return p?.kind === "admin" && p.admin === true;
 }
+
+/** The link at the bottom of every reminder e-mail. It stays valid long enough for old e-mails to keep working. */
+export function signUnsubscribe(userId: string) {
+  return sign({ kind: "reminders-off", userId }, "400d");
+}
+
+/** The account a «dejar de recibir» link belongs to, or null when the link is wrong or expired. */
+export async function verifyUnsubscribeToken(token: string | undefined): Promise<string | null> {
+  const p = await verify(token);
+  return p?.kind === "reminders-off" && typeof p.userId === "string" ? p.userId : null;
+}

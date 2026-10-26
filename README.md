@@ -10,7 +10,7 @@ Next.js 16 · MongoDB Atlas · datos automáticos de JustWatch, sin IA ni API ke
 ![Next.js](https://img.shields.io/badge/Next.js-16.4-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6)
 ![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47a248)
-![Tests](https://img.shields.io/badge/tests-113%20pasan-1e9e48)
+![Tests](https://img.shields.io/badge/tests-120%20pasan-1e9e48)
 ![Licencia](https://img.shields.io/badge/licencia-MIT-blue)
 
 <img src="docs/perfiles.jpg" alt="Pantalla «¿Quién está viendo la peli?» con cuatro perfiles: Ana (Santi), Leo (Rudolfo), Sofi (Pino) y Mateo (Jengi)" width="760" />
@@ -86,6 +86,8 @@ Al registrarse llega un **correo de bienvenida** con el botón para seguir al pa
 **Olvidé la clave.** En `/recuperar` escriben su correo y reciben (con [nodemailer](https://nodemailer.com)) un código de 6 números que vence en 15 minutos; con él eligen la clave nueva. La respuesta es la misma exista o no la cuenta. El código se guarda solo como hash, admite 5 intentos y se pide como máximo 3 veces por hora por correo.
 
 **Ajustes** (menú del avatar → «Ajustes», `/ajustes`): el **nombre** de la casa, su **país** y la tarjeta **Invitar** (copiar el link o el código, o **generar uno nuevo**, con lo que el anterior deja de funcionar al instante). En **Mi cuenta**: cambiar el **correo** o la **clave**, para lo cual piden la clave actual. El menú del avatar también tiene «Copiar link de invitación».
+
+**Recordatorio diario.** En Ajustes, cada cuenta puede activar «Recibir el recordatorio» (apagado por defecto). Cada día, un cron escribe a quien lo activó con la película que toca ese día en el calendario de su casa (con su carátula), el enlace a la plataforma y a la app. No se envía si ese día no hay película, si ya la vieron, ni dos veces el mismo día aunque el cron se repita, y se detiene en 250 correos por ejecución para no pasar el tope diario del proveedor. Todos reciben el correo a la misma hora (13:00 UTC: entre 8 y 9 a. m. en Colombia y Perú, 7 a. m. en México y 2 p. m. en España; en Australia y Nueva Zelanda cae de noche). Cada correo trae el encabezado `List-Unsubscribe` y un enlace a `/baja`, una página pública con enlace firmado y un botón de confirmar —así un antivirus de correo que abre el enlace no da de baja a nadie—.
 
 **Eliminar mi cuenta** (al final de Ajustes) pide la clave y avisa antes qué se pierde. Si hay otras cuentas en la casa, solo se borran la cuenta y su perfil: la casa y sus películas siguen, y lo que esa persona agregó o sugirió aparece como «alguien que ya no está». Si es la única cuenta, se borra también la casa con sus películas, calendario y perfiles. Los perfiles sin cuenta (los niños) se borran aparte, desde «Administrar perfiles»; el que está ligado a una cuenta solo se va con ella.
 
@@ -165,7 +167,7 @@ sequenceDiagram
 | **Node.js 22+** y **pnpm 10** | Correr, probar y construir | Gratis |
 | **MongoDB Atlas** (clúster M0) | Guardar casas, perfiles, películas y calendarios | Gratis |
 | **Vercel** (plan Hobby) | Publicarla en internet y correr la limpieza semanal | Gratis |
-| **Cuenta SMTP** *(para «olvidé la clave»)* | Enviar el código por correo, por ejemplo Gmail con una contraseña de aplicación | Gratis |
+| **Cuenta SMTP** *(correos de la app)* | Enviar el código de «olvidé la clave», la bienvenida y el recordatorio diario. Sin dominio propio, lo más seguro es Gmail con una contraseña de aplicación (idealmente de una cuenta creada para la app): el correo sale de los servidores de Google y llega autenticado. Con un dominio propio, un servicio como [Brevo](https://www.brevo.com/free-smtp-server) (plan gratis de 300 al día) da más margen, pero [exige remitente de su propio dominio](https://help.brevo.com/hc/en-us/articles/14925263522578) con DKIM y DMARC: no usen una dirección de @gmail.com como remitente allí | Gratis (el dominio, unos 10 USD al año) |
 | JustWatch | Pósters, sinopsis, ratings y plataformas en el país de cada casa | Gratis, sin clave |
 | OMDb *(opcional)* | Completar IMDb o Rotten Tomatoes cuando JustWatch no los trae | Gratis hasta 1.000 consultas al día |
 
@@ -183,7 +185,7 @@ Copien [`.env.example`](.env.example) a `.env.local`, que git ignora.
 | `HOME_CAP` | | Máximo de casas. Por defecto 200; `0` cierra los registros. |
 | `CRON_SECRET` | ✅ en Vercel | Protege la limpieza semanal: Vercel la envía como `Authorization: Bearer …`. `openssl rand -base64 32`. |
 | `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` | ✅ en producción | Cuenta que envía el correo de «olvidé la clave». Con Gmail: `smtp.gmail.com`, el correo y una [contraseña de aplicación](https://myaccount.google.com/apppasswords). Sin ellas, en desarrollo el código se imprime en la terminal. |
-| `SMTP_PORT` | | Por defecto 465 (TLS). |
+| `SMTP_PORT` | | Por defecto 465 (TLS). Con Brevo, 587 (STARTTLS). |
 | `SMTP_FROM` | | Remitente, por ejemplo `"Navidad en casa" <correo@gmail.com>`. Por defecto `SMTP_USER`. |
 | `OMDB_API_KEY` | | Clave gratis de [omdbapi.com](https://www.omdbapi.com/apikey.aspx). |
 
@@ -232,7 +234,7 @@ pnpm seed --email tu@correo.com  # la casa de una cuenta
 **Pruebas y chequeos:**
 
 ```bash
-pnpm test        # 113 pruebas: calendario y reparto automático, duplicados, saludo, formato, JustWatch, claves, códigos de invitación, cuentas y códigos por correo, tema automático, límites, créditos de películas, avatares, resumen de la casa
+pnpm test        # 120 pruebas: calendario y reparto automático, duplicados, saludo, formato, JustWatch, claves, códigos de invitación, cuentas y códigos por correo, tema automático, límites, créditos de películas, avatares, resumen de la casa
 pnpm lint
 pnpm typecheck
 pnpm build
@@ -267,7 +269,12 @@ vercel env add MONGODB_URI production    # repetir con cada variable
 vercel deploy --prod
 ```
 
-El archivo [`vercel.json`](vercel.json) programa la limpieza semanal (lunes, 8:00 UTC) en `/api/cron/cleanup`, que borra las casas sin actividad en 12 meses (nunca la casa original).
+El archivo [`vercel.json`](vercel.json) programa dos crons, ambos protegidos con `CRON_SECRET`:
+
+- **Limpieza semanal** (lunes, 8:00 UTC) en `/api/cron/cleanup`: borra las casas sin actividad en 12 meses (nunca la casa original).
+- **Recordatorio diario** (13:00 UTC) en `/api/cron/daily-reminder`: ver «Recordatorio diario» en [Casas, perfiles y límites](#casas-perfiles-y-límites).
+
+El plan gratis de Vercel solo permite crons de una vez al día, con precisión de una hora: el de las 13:00 UTC sale entre las 13:00 y las 13:59.
 
 > En Vercel las cookies son `Secure`: la de la casa dura 30 días y la del perfil un año. Para cerrar todas las sesiones de una vez, cambien `AUTH_SECRET` y vuelvan a desplegar.
 
@@ -326,6 +333,8 @@ src/
 │   ├── perfiles/            # «¿Quién está viendo?», editor de perfiles
 │   ├── admin/               # casas
 │   ├── api/cron/cleanup/    # limpieza semanal (Vercel Cron)
+│   ├── api/cron/daily-reminder/ # recordatorio diario «Hoy toca» (Vercel Cron)
+│   ├── (auth)/baja/         # «dejar de recibir el recordatorio» (público, con enlace firmado)
 │   ├── salir/               # limpia la sesión de una casa que ya no existe
 │   └── globals.css          # paleta navideña (tokens claro/oscuro) y animaciones
 ├── actions/                 # Server Actions: auth, home, profiles, admin, movies, calendar, suggestions
@@ -361,7 +370,8 @@ docs/                        # logo y capturas del README
 | Después de desplegar nadie puede entrar | Faltó crear las cuentas: corran `pnpm migrate:accounts` contra la base de producción (ver [Probarlo en local](#probarlo-en-local)). |
 | «Demasiados intentos» al crear una casa | Esa conexión ya creó 3 casas hoy. Esperen o usen otra red. |
 | «Por ahora no hay lugar para más casas» | Se alcanzó `HOME_CAP`. Súbanlo o borren casas inactivas en `/admin`. |
-| El cron de limpieza responde 401 | Falta `CRON_SECRET` en Vercel (o no coincide). Agréguela y vuelvan a desplegar. |
+| Un cron (limpieza o recordatorio) responde 401 | Falta `CRON_SECRET` en Vercel (o no coincide). Agréguela y vuelvan a desplegar. |
+| El recordatorio no llega | Revisen que la cuenta lo tenga activado en Ajustes, que ese día haya una película en el calendario que aún no hayan visto, que el SMTP esté configurado en Vercel y la carpeta de spam. El cron responde cuántos envió (`sent`), cuántos falló (`failed`) y cuántos omitió (`skipped`). |
 | `AUTH_SECRET debe tener al menos 32 caracteres` | Generen uno con `openssl rand -base64 32`. |
 | La búsqueda no encuentra una película | Prueben con el título original en inglés, o sin año. Si JustWatch no la tiene (por ejemplo, «In fraganti», 2009), elijan «Agregar sin datos» y completen a mano. |
 | «Sugeridas» dice que no pudo cargar | JustWatch no respondió. Recarguen en un momento; el resultado bueno se guarda en caché unas horas. |
@@ -384,7 +394,8 @@ docs/                        # logo y capturas del README
 - [x] Eliminar la propia cuenta
 - [ ] PIN opcional por perfil
 - [ ] Calificación y favoritas por perfil (hoy son de la casa)
-- [ ] Recordatorio diario de «Hoy toca» (Vercel Cron + correo o push)
+- [x] Recordatorio diario de «Hoy toca» por correo (Vercel Cron)
+- [ ] Recordatorio a la hora de cada país (necesita el plan de pago de Vercel: crons por hora)
 - [ ] Actualización automática semanal de plataformas y ratings
 
 ## Licencia y avisos

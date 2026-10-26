@@ -65,6 +65,10 @@ export interface UserDoc {
   homeId: string | null;
   /** A pending "forgot my password" code: only its hash is kept, it expires and allows a few tries. */
   reset?: { codeHash: string; expiresAt: Date; attempts: number };
+  /** Opted in to the daily «Hoy toca» e-mail. Off unless the person turns it on. */
+  reminders?: boolean;
+  /** Day (YYYY-MM-DD, UTC) of the last reminder sent, so a retried run never sends twice. */
+  lastReminderOn?: string;
   createdAt: Date;
   lastActiveAt: Date;
 }
