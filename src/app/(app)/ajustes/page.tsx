@@ -3,7 +3,8 @@ import { Suspense } from "react";
 import { Bone } from "@/components/skeletons";
 import { getHome, getOtherAccountCount, getUser } from "@/lib/dal";
 import { countryOptions } from "@/lib/countries";
-import { CountryForm, DeleteAccountCard, EmailForm, HomeForm, InviteCard, PasswordForm } from "./settings-forms";
+import { canSendMail } from "@/lib/mailer";
+import { CountryForm, DeleteAccountCard, EmailForm, HomeForm, InviteCard, PasswordForm, ReminderCard } from "./settings-forms";
 
 export const metadata: Metadata = { title: "Ajustes" };
 
@@ -29,6 +30,7 @@ async function Settings() {
       <h2 className="-mb-2 pt-2 text-sm font-semibold tracking-wide text-ink-2 uppercase">Mi cuenta</h2>
       <EmailForm email={user.email} />
       <PasswordForm />
+      <ReminderCard on={user.reminders} canSend={canSendMail()} />
       <DeleteAccountCard homeName={home.name} others={others} />
     </div>
   );

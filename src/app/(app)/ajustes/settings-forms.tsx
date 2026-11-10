@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useActionState, useEffect, useOptimistic, useState, useTransition } from "react";
 import { Copy, House, LockKeyhole, Mail, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { regenerateInviteAction } from "@/actions/home";
 import { deleteAccountAction, updateCountryAction, updateEmailAction, updateHomeAction, updatePasswordAction, type SettingsState } from "@/actions/settings";
 import { CountryField, Field, FormError, SubmitButton } from "@/components/auth/fields";
+import { SwitchButton } from "@/components/ui/switch";
+import { setRemindersAction } from "@/actions/reminders";
 
 function Card({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
   return (
@@ -169,6 +171,35 @@ export function EmailForm({ email }: { email: string }) {
           </button>
         </form>
       )}
+    </Card>
+  );
+}
+
+/** The daily «Hoy toca» e-mail. Off until someone turns it on; one switch, saved at once. */
+export function ReminderCard({ on, canSend }: { on: boolean; canSend: boolean }) {
+  const [view, setView] = useOptimistic(on);
+  const [, startTransition] = useTransition();
+
+  function change(next: boolean) {
+    startTransition(async () => {
+      setView(next);
+      const res = await setRemindersAction(next);
+      if (!res.ok) toast.error(res.error);
+      else toast.success(next ? "Recordatorio activado" : "Recordatorio apagado");
+    });
+  }
+
+  return (
+    <Card title="Recordatorio diario" description="Cada mañana, un correo con la película que toca ese día en el calendario, y dónde verla.">
+      <div className="mt-5 flex flex-col gap-3">
+        <SwitchButton on={view} onChange={change} className="h-12 w-full justify-between rounded-[14px] border border-line bg-field px-4 text-[15px] font-semibold">
+          Recibir el recordatorio
+        </SwitchButton>
+        <p className="text-[13px] text-ink-2">
+          Sale una vez al día, a la misma hora para todos: entre 8 y 9 a. m. en Colombia y Perú, 7 a. m. en México y 2 p. m. en España. Solo llega si ese día hay una película en el calendario y todavía no la vieron. Cada correo trae un enlace para dejar de recibirlo.
+        </p>
+        {!canSend && <p className="rounded-[14px] bg-gold-soft p-3 text-sm">Esta instalación no tiene correo configurado, así que por ahora no se pueden enviar recordatorios.</p>}
+      </div>
     </Card>
   );
 }

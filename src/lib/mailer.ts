@@ -24,6 +24,7 @@ interface Mail {
   subject: string;
   text: string;
   html: string;
+  headers?: Record<string, string>;
 }
 
 /** Sends one e-mail, or prints it in the terminal when SMTP isn't set up (development). */
@@ -88,5 +89,41 @@ ${button(next, homeName ? `Unirme a ${homeName}` : "Seguir")}
   <p style="color:#6b6b70;font-size:14px">Entras siempre con este correo (${escapeHtml(to)}) y tu clave. Si la olvidas, te enviamos un código a este correo.</p>`),
     },
     `Bienvenida para ${to} → ${next}`,
+  );
+}
+
+export interface ReminderMail {
+  title: string;
+  /** «2019 · 1 h 38 min · Comedia, Familia» */
+  summary: string;
+  /** The poster, when there is an https image. */
+  posterUrl: string | null;
+  /** Where to watch it, when there is a web link. */
+  platform: { name: string; url: string } | null;
+  appUrl: string;
+  /** Turns the reminders off for this account; it also goes in the List-Unsubscribe header. */
+  unsubscribeUrl: string;
+}
+
+/** The daily «Hoy toca» e-mail: today's movie of the home's advent calendar. */
+export async function sendTodayReminder(to: string, r: ReminderMail): Promise<void> {
+  await send(
+    {
+      to,
+      subject: `🎬 Hoy toca: ${r.title}`,
+      headers: { "List-Unsubscribe": `<${r.unsubscribeUrl}>` },
+      text: `Hoy toca: ${r.title}\n${r.summary}\n\n${r.platform ? `Verla en ${r.platform.name}: ${r.platform.url}\n` : ""}Abrir Navidad en casa: ${r.appUrl}\n\nRecibes este correo porque activaste el recordatorio diario. Para dejar de recibirlo: ${r.unsubscribeUrl}`,
+      html: layout(`  <p style="margin:0 0 10px;color:#6b6b70;font-size:14px;letter-spacing:.06em;text-transform:uppercase">🎬 Hoy toca</p>
+  <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>
+${r.posterUrl ? `    <td valign="top" style="padding-right:16px"><img src="${escapeHtml(r.posterUrl)}" alt="Carátula de ${escapeHtml(r.title)}" width="120" style="display:block;width:120px;height:auto;border-radius:10px"></td>\n` : ""}    <td valign="top">
+      <p style="font-size:24px;line-height:1.15;font-weight:700;margin:0 0 6px">${escapeHtml(r.title)}</p>
+      <p style="margin:0;color:#6b6b70">${escapeHtml(r.summary)}</p>
+${r.platform ? button(r.platform.url, `Verla en ${r.platform.name}`) : ""}
+    </td>
+  </tr></table>
+  <p style="margin:16px 0"><a href="${escapeHtml(r.appUrl)}" style="color:#c8102e;font-weight:600">Abrir Navidad en casa</a></p>
+  <p style="color:#6b6b70;font-size:13px">Recibes este correo porque activaste el recordatorio diario. <a href="${escapeHtml(r.unsubscribeUrl)}" style="color:#6b6b70">Dejar de recibirlo</a>.</p>`),
+    },
+    `Hoy toca para ${to}: ${r.title}`,
   );
 }

@@ -3,7 +3,7 @@ import { PROFILE_COOKIE, SESSION_COOKIE, verifyProfileToken, verifySessionToken 
 
 // Routes anyone can open. /admin has its own password gate inside the page and its actions;
 // /api/cron checks the CRON_SECRET bearer token that Vercel Cron sends.
-const PUBLIC = ["/login", "/unirse", "/recuperar", "/admin", "/salir", "/api/cron"];
+const PUBLIC = ["/login", "/unirse", "/recuperar", "/baja", "/admin", "/salir", "/api/cron"];
 
 const isPublic = (pathname: string) => PUBLIC.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
